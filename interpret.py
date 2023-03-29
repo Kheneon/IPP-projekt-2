@@ -22,6 +22,10 @@ import xml.etree.ElementTree as elemTree
 # 32 - unexpected structure of XML
 
 class ExecuteProgram():
+    """
+    Checks arguments\n
+    Parses XML file\n
+    """
     source_file = ""
     input_file = ""
     def __init__(self):
@@ -131,8 +135,6 @@ class InstructionList:
 
             self.instruction_list.append(instruction)
 
-        
-
 class Frame:
     """
     Class just for creating frame\n
@@ -194,5 +196,21 @@ class FrameStack:
         print("Temp Frame:  ", self.temp_frame.initialized)
         print("Global Frame: ", self.global_frame.initialized)
 
-# MAIN
+class CallStack:
+    """Holds positions that we will return to"""
+    def __init__(self):
+        self.stack = []
+        self.stack_top = -1
+    
+    def pop(self):
+        if self.stack_top == -1:
+            exit(1) # Call stack is empty TODO: exit code
+        self.stack.pop()
+        self.stack_top -= 1
+
+    def push(self,number):
+        self.stack.append(int(number))
+        self.stack_top += 1
+
+# Executing program
 Execution = ExecuteProgram()
