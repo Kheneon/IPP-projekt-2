@@ -20,7 +20,8 @@ import xml.etree.ElementTree as elemTree
 # 
 # 31 - XML file is not "well-formed"
 # 32 - unexpected structure of XML
-
+#
+# 52 - redefinition of variable
 class ExecuteProgram():
     """
     Checks arguments\n
@@ -44,7 +45,8 @@ class ExecuteProgram():
                 frame_stack.push_frame()
             elif instr_name == "POPFRAME":
                 frame_stack.pop_frame()
-            #elif instr_name == 
+            elif instr_name == "MOVE":
+                frame_stack.move(instruction)
 
 
         #testing
@@ -172,6 +174,16 @@ class InstructionList:
             if instruction[0].attrib.get('type').upper() != "VAR":
                 exit(1) #TODO:errcode
             return
+        # arg1 = var, arg2 = const/var
+        elif instr_name in ['MOVE']:
+            if instr_arg_num != 2:
+                exit(1) #TODO: errcode
+            if instruction[0].attrib.get('type').upper() != "VAR":
+                exit(1) #TODO:errcode
+            instr_name = instruction[1].attrib.get('type').upper()
+            if instr_name != "VAR" and instr_name != "INT" and instr_name != "STRING" and instr_name != "BOOL" and instr_name != "NIL":
+                exit(1) #TODO:errcode
+            return
         #arg1 = var, arg2 = var/int, arg3 = var/int
         elif instr_name in ['ADD','SUB','MUL','IDIV']:
             if instr_arg_num != 3:
@@ -211,7 +223,10 @@ class Frame:
     def defvar(self,name):
         if name == "":
             exit(1) #TODO: errcode
+        if name in self.var_list:
+            exit(52)
         self.variables.append(Variable(name))
+        self.var_list.append(name)
 
     def write_var(self):
         for var in self.variables:
@@ -275,6 +290,91 @@ class FrameStack:
         else:
             exit(1) #defvar not with variable with LF/TF/GF TODO: errcode
 
+    def move(self,instruction):
+        """Function represents MOVE instruction"""
+        arg1 = instruction[0].text[3:]
+        if self.is_initialized(instruction[0].text) == False:
+            exit(1) #TODO: errcode
+        if instruction[1].attrib.get('type').upper() == 'VAR':
+            if self.is_assigned(instruction[0].text) == False:
+                exit(1) #TODO: errcode
+            new_type,new_value = self.get_type_and_value(instruction[1].text)
+        else: # int, string, bool, nil
+            if instruction[1].attrib.get('type').upper() == "INT":
+                new_type = "INT"
+            elif instruction[1].attrib.get('type').upper() == 'NIL':
+                new_type = "NIL"
+            elif instruction[1].attrib.get('type').upper() == 'BOOL':
+                new_type = "BOOL"
+            elif instruction[1].attrib.get('type').upper() == 'STRING':
+                new_type = "STRING"
+            else:
+                exit(1) #TODO: errcode
+            new_value = instruction[1].text
+        self.assign(instruction[0].text,new_value,new_type)
+
+    def is_initialized(self,name):
+        """Function checks if variable is initialized"""
+        if name[0:3] == "GF@":
+            var_list = self.global_frame.var_list
+        if name[0:3] == "LF@":
+            if self.local_frame.initialized == False:
+                exit(1) #uninitalized frame TODO: errcode
+            var_list = self.local_frame.var_list
+        if name[0:3] == "TF@":
+            if self.temp_frame.initialized == False:
+                exit(1) #uninitalized frame TODO: errcode
+            var_list = self.temp_frame.var_list
+        if name[3:] not in var_list:
+            return False
+        return True
+
+    def assign(self,name,new_value,new_type):
+        if name[0:3] == "GF@":
+            for var in self.global_frame.variables:
+                if var.name == name[3:]:
+                    var.assign(new_value,new_type)
+        if name[0:3] == "LF@":
+            for var in self.local_frame.variables:
+                if var.name == name[3:]:
+                    var.assign(new_value,new_type)
+        if name[0:3] == "TF@":
+            for var in self.temp_frame.variables:
+                if var.name == name[3:]:
+                    var.assign(new_value,new_type)
+
+    def get_type_and_value(self,name):
+        """Function returns Value and Type of variable"""
+        if name[0:3] == "GF@":
+            variables = self.global_frame.variables
+        if name[0:3] == "LF@":
+            if self.local_frame.initialized == False:
+                exit(1) #uninitalized frame TODO: errcode
+            variables = self.local_frame.variables
+        if name[0:3] == "TF@":
+            if self.temp_frame.initialized == False:
+                exit(1) #uninitalized frame TODO: errcode
+            variables = self.temp_frame.variables
+        for var in variables:
+            if name[3:] == var.name:
+                return var.type,var.value
+
+    def is_assigned(self,name):
+        if self.is_initialized(name) == False:
+            exit(1) #TODO: errcode
+        if name[0:3] == "GF@":
+            frame = self.global_frame
+        if name[0:3] == "LF@":
+            frame = self.local_frame
+        if name[0:3] == "TF@":
+            frame = self.temp_frame
+        for var in frame.variables:
+            if var.name == name:
+                if var.type != None:
+                    return True
+        return False
+
+
     def write_frames(self):
         """Debug Output, shows actual state of frames and stack"""
         stack_size = len(self.stack) - 1
@@ -305,3 +405,32 @@ class CallStack:
 
 # Executing program
 Execution = ExecuteProgram()
+
+#TODO:
+# MOVE
+# CALL
+# RETURN
+# PUSHS
+# POPS
+# ADD
+# SUB
+# MUL
+# IDIV
+# LT, GT, EQ
+# AND, OR, NOT
+# INT2CHAR
+# STRI2INT
+# READ
+# WRITE
+# CONCAT
+# STRLEN
+# GETCHAR
+# SETCHAR
+# TYPE
+# LABEL
+# JUMP
+# JUMPIFEQ
+# JUMPIFNEQ
+# EXIT
+# DPRINT
+# BREAK
