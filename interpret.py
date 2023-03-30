@@ -37,7 +37,6 @@ class ExecuteProgram():
             instr_list.instruction_check(instruction)
             instr_name = instruction.attrib.get('opcode').upper()
             if instr_name == "DEFVAR":
-                #frame_stack.add_var(instruction.arg.get())
                 frame_stack.defvar(instruction[0].text)
             elif instr_name == "CREATEFRAME":
                 frame_stack.create_frame()
@@ -47,6 +46,11 @@ class ExecuteProgram():
                 frame_stack.pop_frame()
             elif instr_name == "MOVE":
                 frame_stack.move(instruction)
+            elif instr_name == "CALL":
+                instr_list.call(instruction)
+            elif instr_name == "LABEL":
+                continue
+            
 
 
         #testing
@@ -58,6 +62,7 @@ class ExecuteProgram():
 
         frame_stack.write_frames()
         print(instr_list.instruction_list)
+        instr_list.print_labels()
 
     def input_parameters(self,argv):
         """
@@ -87,13 +92,12 @@ class ExecuteProgram():
 
 
 class InstructionList:
-    instruction_list = []
-    source_file = ""
-    input_file = ""
-    order_list = []
     def __init__(self,source_file,input_file):
         self.source_file = source_file
         self.input_file = input_file
+        self.instruction_list = []
+        self.order_list = []
+        self.call_stack = CallStack()
         self.xml_parse()
 
     def xml_parse(self):
@@ -147,6 +151,10 @@ class InstructionList:
             else:
                 exit(32)
 
+            if instruction.attrib.get('opcode') == "LABEL":
+                if len(instruction) != 1:
+                    exit(1) # Too many arguments 
+                self.call_stack.add_label(instruction[0].text,instruction.attrib.get('order'))
             self.instruction_list.append(instruction)
             self.instruction_list = sorted(self.instruction_list, key=lambda instr: int(instr.attrib['order']))
 
@@ -174,6 +182,13 @@ class InstructionList:
             if instruction[0].attrib.get('type').upper() != "VAR":
                 exit(1) #TODO:errcode
             return
+        # arg1 = label
+        elif instr_name in ['LABEL']:
+            if instr_arg_num != 1:
+                exit(1) #TODO:errcode
+            if instruction[0].attrib.get('type').upper() != "LABEL":
+                exit(1) #TODO:errcode
+            return
         # arg1 = var, arg2 = const/var
         elif instr_name in ['MOVE']:
             if instr_arg_num != 2:
@@ -181,7 +196,7 @@ class InstructionList:
             if instruction[0].attrib.get('type').upper() != "VAR":
                 exit(1) #TODO:errcode
             instr_name = instruction[1].attrib.get('type').upper()
-            if instr_name != "VAR" and instr_name != "INT" and instr_name != "STRING" and instr_name != "BOOL" and instr_name != "NIL":
+            if instr_name not in ['VAR','INT','STRING','BOOL','NIL']:
                 exit(1) #TODO:errcode
             return
         #arg1 = var, arg2 = var/int, arg3 = var/int
@@ -199,6 +214,12 @@ class InstructionList:
         else:
             exit(1) #TODO: errcode
         exit(1) #TODO: errcode
+
+    def call(self):
+        self.call_stack.push()
+
+    def print_labels(self):
+        print(self.call_stack.labels)
 
 class Variable:
     def __init__(self,name):
@@ -300,15 +321,8 @@ class FrameStack:
                 exit(1) #TODO: errcode
             new_type,new_value = self.get_type_and_value(instruction[1].text)
         else: # int, string, bool, nil
-            if instruction[1].attrib.get('type').upper() == "INT":
-                new_type = "INT"
-            elif instruction[1].attrib.get('type').upper() == 'NIL':
-                new_type = "NIL"
-            elif instruction[1].attrib.get('type').upper() == 'BOOL':
-                new_type = "BOOL"
-            elif instruction[1].attrib.get('type').upper() == 'STRING':
-                new_type = "STRING"
-            else:
+            new_type = instruction[1].attrib.get('type').upper()
+            if new_type not in ['STRING','BOOL','NIL','INT']:
                 exit(1) #TODO: errcode
             new_value = instruction[1].text
         self.assign(instruction[0].text,new_value,new_type)
@@ -390,6 +404,7 @@ class FrameStack:
 class CallStack:
     """Holds positions that we will return to"""
     def __init__(self):
+        self.labels = {}
         self.stack = []
         self.stack_top = -1
     
@@ -402,12 +417,14 @@ class CallStack:
     def push(self,number):
         self.stack.append(int(number))
         self.stack_top += 1
+    
+    def add_label(self,name,order):
+        self.labels[name] = order
 
 # Executing program
 Execution = ExecuteProgram()
 
 #TODO:
-# MOVE
 # CALL
 # RETURN
 # PUSHS
