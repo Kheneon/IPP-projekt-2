@@ -32,39 +32,42 @@ class ExecuteProgram():
     def __init__(self):
         self.input_parameters(sys.argv)
         instr_list = InstructionList(self.source_file,self.input_file)
-        frame_stack = FrameStack()
+        stack = Stack()
         for instruction in instr_list.instruction_list:
             instr_list.instruction_check(instruction)
             instr_name = instruction.attrib.get('opcode').upper()
             if instr_name == "DEFVAR":
-                frame_stack.defvar(instruction[0].text)
+                stack.defvar(instruction[0].text)
             elif instr_name == "CREATEFRAME":
-                frame_stack.create_frame()
+                stack.create_frame()
             elif instr_name == "PUSHFRAME":
-                frame_stack.push_frame()
+                stack.push_frame()
             elif instr_name == "POPFRAME":
-                frame_stack.pop_frame()
+                stack.pop_frame()
             elif instr_name == "MOVE":
-                frame_stack.move(instruction)
+                stack.move(instruction)
             elif instr_name == "CALL":
                 instr_list.call(instruction)
             elif instr_name == "LABEL":
                 continue
             elif instr_name == "TYPE":
-                frame_stack.to_type(instruction[0],instruction[1])
+                stack.to_type(instruction[0],instruction[1])
+            elif instr_name == "PUSHS":
+                stack.pushs(instruction[0].attrib.get('type').upper(),instruction[0].text)
 
 
 
         #testing
-        #frame_stack.create_frame()
+        #stack.create_frame()
         
-        #frame_stack.push_frame()
-        #frame_stack.create_frame()
-        #frame_stack.push_frame()
+        #stack.push_frame()
+        #stack.create_frame()
+        #stack.push_frame()
 
-        frame_stack.write_frames()
+        stack.write_frames()
         print(instr_list.instruction_list)
         instr_list.print_labels()
+        stack.data_stack.write_data_stack()
 
     def input_parameters(self,argv):
         """
@@ -184,6 +187,13 @@ class InstructionList:
             if instruction[0].attrib.get('type').upper() != "VAR":
                 exit(1) #TODO:errcode
             return
+        # arg1 = variable/const
+        elif instr_name in ['PUSHS']:
+            if instr_arg_num != 1:
+                exit(1) #TODO:errcode
+            if instruction[0].attrib.get('type').upper() not in ['VAR','INT','STRING','BOOL','NIL']:
+                exit(1) #TODO:errcode
+            return
         # arg1 = label
         elif instr_name in ['LABEL']:
             if instr_arg_num != 1:
@@ -255,12 +265,7 @@ class Frame:
         for var in self.variables:
             print("\t[name]",var.name,"[type]",var.var_type,"[value]",var.value)
 
-
 class FrameStack:
-    """
-    Stack for frames\n
-    Includes Temporary, Local and Global Frame
-    """
     def __init__(self):
         self.global_frame = Frame(True) #Global
         self.local_frame = Frame(False) #Local
@@ -268,9 +273,21 @@ class FrameStack:
         self.stack = []                 #Empty stack
         self.stack_top = -1
 
+class Stack:
+    """
+    Stacks\n
+    Includes Frame Stack
+    Includes Data Stack
+    Includes Call Stack
+    """
+    def __init__(self):
+        self.frame_stack = FrameStack()
+        self.data_stack = DataStack()
+        self.call_stack = CallStack()
+
     def create_frame(self):
         """Creating temporary frame"""
-        self.temp_frame.initialized = True
+        self.frame_stack.temp_frame.initialized = True
         print("create frame")
 
     def pop_frame(self):
@@ -278,8 +295,8 @@ class FrameStack:
         if self.stack_top == -1:
             exit(55) # no frame to pop from stack left
 
-        self.temp_frame = self.local_frame
-        self.local_frame = self.stack[self.stack_top] 
+        self.frame_stack.temp_frame = self.frame_stack.local_frame
+        self.frame_stack.local_frame = self.stack[self.stack_top] 
         self.stack_top -= 1
         self.stack.pop()
         print("pop frame")
@@ -288,26 +305,26 @@ class FrameStack:
         """
         Pushing Temporary Frame on Stack, now it is Local frame
         """
-        if self.temp_frame.initialized == False:
+        if self.frame_stack.temp_frame.initialized == False:
             exit(55) # Pushing uninitialized frame
 
         self.stack.append(self.local_frame)
         self.stack_top += 1
-        self.local_frame = self.temp_frame
-        self.temp_frame = Frame(False)
+        self.frame_stack.local_frame = self.temp_frame
+        self.frame_stack.temp_frame = Frame(False)
         print("pushing frame")
 
     def defvar(self,name):
         if name[0:3] == "GF@":
-            self.global_frame.defvar(name[3:])
+            self.frame_stack.global_frame.defvar(name[3:])
         elif name[0:3] == "LF@":
-            if self.local_frame.initialized == True:
-                self.local_frame.defvar(name[3:])
+            if self.frame_stack.local_frame.initialized == True:
+                self.frame_stack.local_frame.defvar(name[3:])
             else:
                 exit(1) #defvarr on uninitialized frame TODO: error code
         elif name[0:3] == "TF@":
-            if self.temp_frame.initialized == True:
-                self.temp_frame.defvar(name[3:])
+            if self.frame_stack.temp_frame.initialized == True:
+                self.frame_stack.temp_frame.defvar(name[3:])
             else:
                 exit(1) #defvar on uninitialized frameTODO: err code
         else:
@@ -351,45 +368,45 @@ class FrameStack:
         """Function checks if variable is initialized"""
         var_list = []
         if name[0:3] == "GF@":
-            var_list = self.global_frame.var_list
+            var_list = self.frame_stack.global_frame.var_list
         if name[0:3] == "LF@":
-            if self.local_frame.initialized == False:
+            if self.frame_stack.local_frame.initialized == False:
                 exit(1) #uninitalized frame TODO: errcode
-            var_list = self.local_frame.var_list
+            var_list = self.frame_stack.local_frame.var_list
         if name[0:3] == "TF@":
-            if self.temp_frame.initialized == False:
+            if self.frame_stack.temp_frame.initialized == False:
                 exit(1) #uninitalized frame TODO: errcode
-            var_list = self.temp_frame.var_list
+            var_list = self.frame_stack.temp_frame.var_list
         if name[3:] not in var_list:
             return False
         return True
 
     def assign(self,name,new_value,new_type):
         if name[0:3] == "GF@":
-            for var in self.global_frame.variables:
+            for var in self.frame_stack.global_frame.variables:
                 if var.name == name[3:]:
                     var.assign(new_value,new_type)
         if name[0:3] == "LF@":
-            for var in self.local_frame.variables:
+            for var in self.frame_stack.local_frame.variables:
                 if var.name == name[3:]:
                     var.assign(new_value,new_type)
         if name[0:3] == "TF@":
-            for var in self.temp_frame.variables:
+            for var in self.frame_stack.temp_frame.variables:
                 if var.name == name[3:]:
                     var.assign(new_value,new_type)
 
     def get_type_and_value(self,name):
         """Function returns Value and Type of variable"""
         if name[0:3] == "GF@":
-            variables = self.global_frame.variables
+            variables = self.frame_stack.global_frame.variables
         if name[0:3] == "LF@":
-            if self.local_frame.initialized == False:
+            if self.frame_stack.local_frame.initialized == False:
                 exit(1) #uninitalized frame TODO: errcode
-            variables = self.local_frame.variables
+            variables = self.frame_stack.local_frame.variables
         if name[0:3] == "TF@":
-            if self.temp_frame.initialized == False:
+            if self.frame_stack.temp_frame.initialized == False:
                 exit(1) #uninitalized frame TODO: errcode
-            variables = self.temp_frame.variables
+            variables = self.frame_stack.temp_frame.variables
         for var in variables:
             if name[3:] == var.name:
                 return var.var_type,var.value
@@ -399,11 +416,11 @@ class FrameStack:
         if self.is_initialized(name) == False:
             exit(1) #TODO: errcode
         if name[0:3] == "GF@":
-            frame = self.global_frame
+            frame = self.frame_stack.global_frame
         if name[0:3] == "LF@":
-            frame = self.local_frame
+            frame = self.frame_stack.local_frame
         if name[0:3] == "TF@":
-            frame = self.temp_frame
+            frame = self.frame_stack.temp_frame
         for var in frame.variables:
             if var.name == name[3:]:
                 if var.var_type != None:
@@ -413,15 +430,28 @@ class FrameStack:
 
     def write_frames(self):
         """Debug Output, shows actual state of frames and stack"""
-        stack_size = len(self.stack) - 1
+        stack_size = len(self.frame_stack.stack) - 1
         print("[DEBUG] --- FrameStack ---")
         print("Frames on Stack: ", stack_size, "[Local frame is not included]")
-        print("Local frame: ", self.local_frame.initialized)
-        self.local_frame.write_var()
-        print("Temp Frame:  ", self.temp_frame.initialized)
-        self.temp_frame.write_var()
-        print("Global Frame: ", self.global_frame.initialized)
-        self.global_frame.write_var()
+        print("Local frame: ", self.frame_stack.local_frame.initialized)
+        self.frame_stack.local_frame.write_var()
+        print("Temp Frame:  ", self.frame_stack.temp_frame.initialized)
+        self.frame_stack.temp_frame.write_var()
+        print("Global Frame: ", self.frame_stack.global_frame.initialized)
+        self.frame_stack.global_frame.write_var()
+
+    def pushs(self,var_type,value):
+        if var_type == "VAR":
+            if self.is_assigned(value) == False:
+                exit(1) #TODO: errcode
+            new_type,new_value = self.get_type_and_value(value)
+        elif var_type in ['STRING','BOOL','INT','NIL']:
+            new_type = var_type.upper()
+            new_value = value
+        self.data_stack.push(new_value,new_type)
+
+    def pops(self):
+        print("pop")
 
 class CallStack:
     """Holds positions that we will return to"""
@@ -442,6 +472,24 @@ class CallStack:
     
     def add_label(self,name,order):
         self.labels[name] = order
+
+class DataStack:
+    def __init__(self):
+        self.stack = []
+    
+    def pop(self):
+        return self.stack.pop()
+
+    def push(self,value,var_type):
+        var = Variable(None)
+        var.assign(value,var_type)
+        self.stack.append(var)
+
+    def write_data_stack(self):
+        print("[DEBUG] --- DATA STACK ---\n[TOP]")
+        for var in self.stack:
+            print("[TYPE] ",var.var_type," [VALUE] ",var.value)
+        print("[BOTTOM]")
 
 # Executing program
 Execution = ExecuteProgram()
