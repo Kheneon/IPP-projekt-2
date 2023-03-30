@@ -50,7 +50,9 @@ class ExecuteProgram():
                 instr_list.call(instruction)
             elif instr_name == "LABEL":
                 continue
-            
+            elif instr_name == "TYPE":
+                frame_stack.to_type(instruction[0],instruction[1])
+
 
 
         #testing
@@ -190,7 +192,7 @@ class InstructionList:
                 exit(1) #TODO:errcode
             return
         # arg1 = var, arg2 = const/var
-        elif instr_name in ['MOVE']:
+        elif instr_name in ['MOVE','TYPE']:
             if instr_arg_num != 2:
                 exit(1) #TODO: errcode
             if instruction[0].attrib.get('type').upper() != "VAR":
@@ -327,8 +329,27 @@ class FrameStack:
             new_value = instruction[1].text
         self.assign(instruction[0].text,new_value,new_type)
 
+    def to_type(self,dest,src):
+        """
+        Function takes on input
+        @param: dest Name of variable. Where to save result of operation
+        @param: src  Scans this variable and constant, type saves into dest
+        """
+        if self.is_initialized(dest.text) == False:
+            exit(1)
+        src_type = src.attrib.get('type').upper()
+        if src_type == 'VAR':
+            if self.is_assigned(src.text) == False:
+                exit(1) #TODO: errcode
+            new_value,_ = self.get_type_and_value(src.text)
+            new_type = "STRING"
+            self.assign(dest.text,new_value,new_type)
+        elif src_type in ['INT','STRING','BOOL','NIL']:
+            self.assign(dest.text,src_type.lower(),"STRING")
+
     def is_initialized(self,name):
         """Function checks if variable is initialized"""
+        var_list = []
         if name[0:3] == "GF@":
             var_list = self.global_frame.var_list
         if name[0:3] == "LF@":
@@ -371,9 +392,10 @@ class FrameStack:
             variables = self.temp_frame.variables
         for var in variables:
             if name[3:] == var.name:
-                return var.type,var.value
+                return var.var_type,var.value
 
     def is_assigned(self,name):
+        print(name[3:])
         if self.is_initialized(name) == False:
             exit(1) #TODO: errcode
         if name[0:3] == "GF@":
@@ -383,8 +405,8 @@ class FrameStack:
         if name[0:3] == "TF@":
             frame = self.temp_frame
         for var in frame.variables:
-            if var.name == name:
-                if var.type != None:
+            if var.name == name[3:]:
+                if var.var_type != None:
                     return True
         return False
 
@@ -443,8 +465,6 @@ Execution = ExecuteProgram()
 # STRLEN
 # GETCHAR
 # SETCHAR
-# TYPE
-# LABEL
 # JUMP
 # JUMPIFEQ
 # JUMPIFNEQ
