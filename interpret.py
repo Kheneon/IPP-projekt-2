@@ -32,13 +32,27 @@ class ExecuteProgram():
         self.input_parameters(sys.argv)
         instr_list = InstructionList(self.source_file,self.input_file)
         frame_stack = FrameStack()
+        for instruction in instr_list.instruction_list:
+            instr_list.instruction_check(instruction)
+            instr_name = instruction.attrib.get('opcode').upper()
+            if instr_name == "DEFVAR":
+                #frame_stack.add_var(instruction.arg.get())
+                frame_stack.defvar(instruction[0].text)
+            elif instr_name == "CREATEFRAME":
+                frame_stack.create_frame()
+            elif instr_name == "PUSHFRAME":
+                frame_stack.push_frame()
+            elif instr_name == "POPFRAME":
+                frame_stack.pop_frame()
+            #elif instr_name == 
+
 
         #testing
-        frame_stack.create_frame()
+        #frame_stack.create_frame()
         
-        frame_stack.push_frame()
-        frame_stack.create_frame()
-        frame_stack.push_frame()
+        #frame_stack.push_frame()
+        #frame_stack.create_frame()
+        #frame_stack.push_frame()
 
         frame_stack.write_frames()
         print(instr_list.instruction_list)
@@ -68,8 +82,6 @@ class ExecuteProgram():
                     exit(10)
             else:
                 exit(10)
-
-
 
 
 class InstructionList:
@@ -134,16 +146,76 @@ class InstructionList:
                 exit(32)
 
             self.instruction_list.append(instruction)
+            self.instruction_list = sorted(self.instruction_list, key=lambda instr: int(instr.attrib['order']))
+
+    def instruction_check(self,instruction):
+        # instruction tag control
+        counter = 1
+        for arg in instruction:
+            arg_name = "arg" + str(counter)
+            if arg.tag != arg_name:
+                print(arg_name,arg.text)
+            counter += 1
+
+        instr_name = instruction.attrib.get('opcode').upper()
+        instr_arg_num = len(instruction)
+        print(instr_name,instr_arg_num)
+        #no arguments
+        if instr_name in ['CREATEFRAME','PUSHFRAME','POPFRAME']:
+            if instr_arg_num != 0:
+                exit(1)
+            return
+        # arg1 = variable
+        elif instr_name in ['DEFVAR']:
+            if instr_arg_num != 1:
+                exit(1) #TODO:errcode
+            if instruction[0].attrib.get('type').upper() != "VAR":
+                exit(1) #TODO:errcode
+            return
+        #arg1 = var, arg2 = var/int, arg3 = var/int
+        elif instr_name in ['ADD','SUB','MUL','IDIV']:
+            if instr_arg_num != 3:
+                exit(1)
+            if instruction[0].attrib.get('type').upper() != "VAR":
+                exit(1) #TODO:errcode
+            for i in range(instr_arg_num-1):
+                instr_type = instruction[i+1].attrib.get('type').upper()
+                if instr_type != "VAR" and instr_type != "INT":
+                    exit(1) #TODO:errcode
+            return
+        
+        else:
+            exit(1) #TODO: errcode
+        exit(1) #TODO: errcode
+
+class Variable:
+    def __init__(self,name):
+        self.name = name
+        self.var_type = "none"
+        self.value = None
+
+    def assign(self,value,var_type):
+        self.value = value
+        self.var_type = var_type
 
 class Frame:
     """
     Class just for creating frame\n
     Stores variables in dictionary
     """
-    initialized = False
-    variables = {}
     def __init__(self,initialize = False):
         self.initialized = initialize
+        self.variables = []
+        self.var_list = []
+
+    def defvar(self,name):
+        if name == "":
+            exit(1) #TODO: errcode
+        self.variables.append(Variable(name))
+
+    def write_var(self):
+        for var in self.variables:
+            print("\t[name]",var.name,"[type]",var.var_type,"[value]",var.value)
 
 
 class FrameStack:
@@ -187,14 +259,33 @@ class FrameStack:
         self.temp_frame = Frame(False)
         print("pushing frame")
 
+    def defvar(self,name):
+        if name[0:3] == "GF@":
+            self.global_frame.defvar(name[3:])
+        elif name[0:3] == "LF@":
+            if self.local_frame.initialized == True:
+                self.local_frame.defvar(name[3:])
+            else:
+                exit(1) #defvarr on uninitialized frame TODO: error code
+        elif name[0:3] == "TF@":
+            if self.temp_frame.initialized == True:
+                self.temp_frame.defvar(name[3:])
+            else:
+                exit(1) #defvar on uninitialized frameTODO: err code
+        else:
+            exit(1) #defvar not with variable with LF/TF/GF TODO: errcode
+
     def write_frames(self):
         """Debug Output, shows actual state of frames and stack"""
         stack_size = len(self.stack) - 1
         print("[DEBUG] --- FrameStack ---")
         print("Frames on Stack: ", stack_size, "[Local frame is not included]")
         print("Local frame: ", self.local_frame.initialized)
+        self.local_frame.write_var()
         print("Temp Frame:  ", self.temp_frame.initialized)
+        self.temp_frame.write_var()
         print("Global Frame: ", self.global_frame.initialized)
+        self.global_frame.write_var()
 
 class CallStack:
     """Holds positions that we will return to"""
