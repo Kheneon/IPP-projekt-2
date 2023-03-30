@@ -36,24 +36,27 @@ class ExecuteProgram():
         for instruction in instr_list.instruction_list:
             instr_list.instruction_check(instruction)
             instr_name = instruction.attrib.get('opcode').upper()
-            if instr_name == "DEFVAR":
-                stack.defvar(instruction[0].text)
-            elif instr_name == "CREATEFRAME":
-                stack.create_frame()
-            elif instr_name == "PUSHFRAME":
-                stack.push_frame()
-            elif instr_name == "POPFRAME":
-                stack.pop_frame()
-            elif instr_name == "MOVE":
-                stack.move(instruction)
-            elif instr_name == "CALL":
-                instr_list.call(instruction)
-            elif instr_name == "LABEL":
-                continue
-            elif instr_name == "TYPE":
-                stack.to_type(instruction[0],instruction[1])
-            elif instr_name == "PUSHS":
-                stack.pushs(instruction[0].attrib.get('type').upper(),instruction[0].text)
+            match instr_name:
+                case "DEFVAR":
+                    stack.defvar(instruction[0].text)
+                case "CREATEFRAME":
+                    stack.create_frame()
+                case "PUSHFRAME":
+                    stack.push_frame()
+                case "POPFRAME":
+                    stack.pop_frame()
+                case "MOVE":
+                    stack.move(instruction)
+                case "CALL":
+                    instr_list.call(instruction)
+                case "LABEL":
+                    continue
+                case "TYPE":
+                    stack.to_type(instruction[0],instruction[1])
+                case "PUSHS":
+                    stack.pushs(instruction[0].attrib.get('type').upper(),instruction[0].text)
+                case "POPS":
+                    stack.pops(instruction[0].text)
 
 
 
@@ -181,7 +184,7 @@ class InstructionList:
                 exit(1)
             return
         # arg1 = variable
-        elif instr_name in ['DEFVAR']:
+        elif instr_name in ['DEFVAR','POPS']:
             if instr_arg_num != 1:
                 exit(1) #TODO:errcode
             if instruction[0].attrib.get('type').upper() != "VAR":
@@ -450,8 +453,11 @@ class Stack:
             new_value = value
         self.data_stack.push(new_value,new_type)
 
-    def pops(self):
-        print("pop")
+    def pops(self,var_name):
+        if self.is_initialized(var_name) == False:
+            exit(1) #TODO: errcode
+        var_to_save = self.data_stack.stack.pop()
+        self.assign(var_name,var_to_save.value,var_to_save.var_type)
 
 class CallStack:
     """Holds positions that we will return to"""
