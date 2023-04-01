@@ -84,6 +84,9 @@ class ExecuteProgram():
                     instr_list.jump(instruction[0].text,instruction.attrib.get('order'))
                 case "RETURN":
                     instr_list.return_call()
+                case "EXIT":
+                    instr_list.exit_call(instruction[0].text)
+
 
             #print(instr_index)
             instr_index += 1
@@ -242,6 +245,13 @@ class InstructionList:
             if instruction[0].attrib.get('type').upper() != "LABEL":
                 exit(1) #TODO:errcode
             return
+        # arg1 = INT
+        elif instr_name in ['EXIT']:
+            if instr_arg_num != 1:
+                exit(1) #TODO:errcode
+            if instruction[0].attrib.get('type').upper() != "INT":
+                exit(1) #TODO:errcode
+            return
         # arg1 = var, arg2 = const/var
         elif instr_name in ['MOVE','TYPE']:
             if instr_arg_num != 2:
@@ -278,6 +288,7 @@ class InstructionList:
         if name not in self.call_stack.label_list:
             exit(1) #TODO:errcode
         instr_index = self.order_dict[self.call_stack.label_order[name]]
+        print(instr_index)
 
     def return_call(self):
         global instr_index
@@ -287,6 +298,12 @@ class InstructionList:
         name = self.call_stack.pop()
         instr_index = self.order_dict[name]
         print(instr_index)
+
+    def exit_call(self,exit_code):
+        try: int(exit_code)
+        except ValueError:
+            exit(57)
+        exit(int(exit_code))
         
 
     def print_labels(self):
