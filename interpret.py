@@ -12,6 +12,7 @@
 import re
 import sys
 import xml.etree.ElementTree as elemTree
+#import atexit   
 
 # Exit codes:
 # 10 - missing parameter or forbiden combination of params
@@ -22,6 +23,15 @@ import xml.etree.ElementTree as elemTree
 # 32 - unexpected structure of XML
 #
 # 52 - redefinition of variable
+
+#def exit_handler():
+#    print("[DEBUG] exit debug write:")
+#    print("[DEBUG]order_list:\n",Execution.instr_list.order_list)
+#    print("[DEBUG]order_dict:\n",Execution.instr_list.order_dict)
+#    print("[DEBUG]label_list:\n",Execution.instr_list.call_stack.label_list)
+#atexit.register(exit_handler)
+
+
 
 instr_index = 0
 
@@ -38,10 +48,16 @@ class ExecuteProgram():
         instr_list = InstructionList(self.source_file,self.input_file)
         stack = Stack()
         instr_list_length = len(instr_list.instruction_list)
+        print("[DEBUG]order_list:\n",instr_list.order_list)
+        print("[DEBUG]order_dict:\n",instr_list.order_dict)
+        print("[DEBUG]label_list:\n",instr_list.call_stack.label_list)
+        print("[DEBUG]label_order:\n",instr_list.call_stack.label_order)
+        print("[DEBUG] executing:")
         while instr_index < instr_list_length:
             instruction = instr_list.instruction_list[instr_index]
             instr_list.instruction_check(instruction)
             instr_name = instruction.attrib.get('opcode').upper()
+            print("INSTRUCTION:",instr_name,"\nindex:",instr_index)
             match instr_name:
                 case "DEFVAR":
                     stack.defvar(instruction[0].text)
@@ -54,7 +70,7 @@ class ExecuteProgram():
                 case "MOVE":
                     stack.move(instruction)
                 case "CALL":
-                    instr_list.call(instruction[0].text)
+                    instr_list.call(instruction[0].text,instruction.attrib.get('order'))
                 case "LABEL":
                     instr_index += 1
                     continue
@@ -65,7 +81,9 @@ class ExecuteProgram():
                 case "POPS":
                     stack.pops(instruction[0].text)
                 case "JUMP":
-                    instr_list.jump(instruction[0].text)
+                    instr_list.jump(instruction[0].text,instruction.attrib.get('order'))
+                case "RETURN":
+                    instr_list.return_call()
 
             #print(instr_index)
             instr_index += 1
@@ -79,8 +97,8 @@ class ExecuteProgram():
         #stack.create_frame()
         #stack.push_frame()
 
+        print("[DEBUG] State after execution:")
         stack.write_frames()
-        print(instr_list.instruction_list)
         instr_list.print_labels()
         stack.data_stack.write_data_stack()
 
@@ -185,8 +203,6 @@ class InstructionList:
         for ord in self.order_list:
             self.order_dict[ord] = counter
             counter += 1
-        print(self.order_list)
-        print(self.order_dict)
 
 
     def instruction_check(self,instruction):
@@ -200,9 +216,8 @@ class InstructionList:
 
         instr_name = instruction.attrib.get('opcode').upper()
         instr_arg_num = len(instruction)
-        print("INSTRUCTION:",instr_name,instr_arg_num)
         #no arguments
-        if instr_name in ['CREATEFRAME','PUSHFRAME','POPFRAME']:
+        if instr_name in ['CREATEFRAME','PUSHFRAME','POPFRAME','RETURN']:
             if instr_arg_num != 0:
                 exit(1)
             return
@@ -221,7 +236,7 @@ class InstructionList:
                 exit(1) #TODO:errcode
             return
         # arg1 = label
-        elif instr_name in ['LABEL','CALL']:
+        elif instr_name in ['LABEL','CALL','JUMP']:
             if instr_arg_num != 1:
                 exit(1) #TODO:errcode
             if instruction[0].attrib.get('type').upper() != "LABEL":
@@ -253,20 +268,29 @@ class InstructionList:
             exit(1) #TODO: errcode
         exit(1) #TODO: errcode
 
-    def call(self,name):
+    def call(self,name,order):
         global instr_index
-        self.jump(name)
-        self.call_stack.push(name)
+        self.jump(name,order)
+        self.call_stack.push(order)
 
-    def jump(self,name):
+    def jump(self,name,order):
         global instr_index
         if name not in self.call_stack.label_list:
             exit(1) #TODO:errcode
         instr_index = self.order_dict[self.call_stack.label_order[name]]
+
+    def return_call(self):
+        global instr_index
+        if self.call_stack.stack_top == -1:
+            exit(1)
+        print(self.call_stack.stack)
+        name = self.call_stack.pop()
+        instr_index = self.order_dict[name]
+        print(instr_index)
         
 
     def print_labels(self):
-        print(self.call_stack.labels)
+        print(self.call_stack.label_list)
 
 class Variable:
     def __init__(self,name):
@@ -502,8 +526,9 @@ class CallStack:
     def pop(self):
         if self.stack_top == -1:
             exit(1) # Call stack is empty TODO: exit code
-        self.stack.pop()
+        name = self.stack.pop()
         self.stack_top -= 1
+        return name
 
     def push(self,name):
         self.stack.append(name)
@@ -535,7 +560,6 @@ class DataStack:
 Execution = ExecuteProgram()
 
 #TODO:
-# RETURN
 # ADD
 # SUB
 # MUL
@@ -550,7 +574,6 @@ Execution = ExecuteProgram()
 # STRLEN
 # GETCHAR
 # SETCHAR
-# JUMP
 # JUMPIFEQ
 # JUMPIFNEQ
 # EXIT
