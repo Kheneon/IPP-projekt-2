@@ -22,6 +22,9 @@ import xml.etree.ElementTree as elemTree
 # 32 - unexpected structure of XML
 #
 # 52 - redefinition of variable
+
+instr_index = 0
+
 class ExecuteProgram():
     """
     Checks arguments\n
@@ -30,10 +33,13 @@ class ExecuteProgram():
     source_file = ""
     input_file = ""
     def __init__(self):
+        global instr_index
         self.input_parameters(sys.argv)
         instr_list = InstructionList(self.source_file,self.input_file)
         stack = Stack()
-        for instruction in instr_list.instruction_list:
+        instr_list_length = len(instr_list.instruction_list)
+        while instr_index < instr_list_length:
+            instruction = instr_list.instruction_list[instr_index]
             instr_list.instruction_check(instruction)
             instr_name = instruction.attrib.get('opcode').upper()
             match instr_name:
@@ -48,8 +54,9 @@ class ExecuteProgram():
                 case "MOVE":
                     stack.move(instruction)
                 case "CALL":
-                    instr_list.call(instruction)
+                    instr_list.call(instruction[0].text)
                 case "LABEL":
+                    instr_index += 1
                     continue
                 case "TYPE":
                     stack.to_type(instruction[0],instruction[1])
@@ -57,6 +64,9 @@ class ExecuteProgram():
                     stack.pushs(instruction[0].attrib.get('type').upper(),instruction[0].text)
                 case "POPS":
                     stack.pops(instruction[0].text)
+
+            #print(instr_index)
+            instr_index += 1
 
 
 
@@ -105,6 +115,7 @@ class InstructionList:
         self.input_file = input_file
         self.instruction_list = []
         self.order_list = []
+        self.order_dict = {}
         self.call_stack = CallStack()
         self.xml_parse()
 
@@ -164,7 +175,17 @@ class InstructionList:
                     exit(1) # Too many arguments 
                 self.call_stack.add_label(instruction[0].text,instruction.attrib.get('order'))
             self.instruction_list.append(instruction)
-            self.instruction_list = sorted(self.instruction_list, key=lambda instr: int(instr.attrib['order']))
+
+        self.instruction_list = sorted(self.instruction_list, key=lambda instr: int(instr.attrib['order']))
+        #self.order_list = [int(x) for x in self.order_list]
+        self.order_list = sorted(self.order_list, key=lambda ord: int(ord))
+        counter = 0
+        for ord in self.order_list:
+            self.order_dict[ord] = counter
+            counter += 1
+        print(self.order_list)
+        print(self.order_dict)
+
 
     def instruction_check(self,instruction):
         # instruction tag control
@@ -177,7 +198,7 @@ class InstructionList:
 
         instr_name = instruction.attrib.get('opcode').upper()
         instr_arg_num = len(instruction)
-        print(instr_name,instr_arg_num)
+        print("INSTRUCTION:",instr_name,instr_arg_num)
         #no arguments
         if instr_name in ['CREATEFRAME','PUSHFRAME','POPFRAME']:
             if instr_arg_num != 0:
@@ -198,7 +219,7 @@ class InstructionList:
                 exit(1) #TODO:errcode
             return
         # arg1 = label
-        elif instr_name in ['LABEL']:
+        elif instr_name in ['LABEL','CALL']:
             if instr_arg_num != 1:
                 exit(1) #TODO:errcode
             if instruction[0].attrib.get('type').upper() != "LABEL":
@@ -230,8 +251,13 @@ class InstructionList:
             exit(1) #TODO: errcode
         exit(1) #TODO: errcode
 
-    def call(self):
-        self.call_stack.push()
+    def call(self,name):
+        global instr_index
+        #print(self.call_stack.label_order)
+        if name not in self.call_stack.label_list:
+            exit(1) #TODO:errcode
+        instr_index = self.order_dict[self.call_stack.label_order[name]]
+        self.call_stack.push(name)
 
     def print_labels(self):
         print(self.call_stack.labels)
@@ -290,8 +316,8 @@ class Stack:
 
     def create_frame(self):
         """Creating temporary frame"""
-        self.frame_stack.temp_frame.initialized = True
-        print("create frame")
+        self.frame_stack.temp_frame = Frame(True)
+        #print("create frame")
 
     def pop_frame(self):
         """Pops Local frame to Temporary frame, remove previous Temporary frame"""
@@ -302,7 +328,7 @@ class Stack:
         self.frame_stack.local_frame = self.stack[self.stack_top] 
         self.stack_top -= 1
         self.stack.pop()
-        print("pop frame")
+        #print("pop frame")
 
     def push_frame(self):
         """
@@ -315,7 +341,7 @@ class Stack:
         self.stack_top += 1
         self.frame_stack.local_frame = self.temp_frame
         self.frame_stack.temp_frame = Frame(False)
-        print("pushing frame")
+        #print("pushing frame")
 
     def defvar(self,name):
         if name[0:3] == "GF@":
@@ -415,7 +441,7 @@ class Stack:
                 return var.var_type,var.value
 
     def is_assigned(self,name):
-        print(name[3:])
+        #print(name[3:])
         if self.is_initialized(name) == False:
             exit(1) #TODO: errcode
         if name[0:3] == "GF@":
@@ -462,7 +488,8 @@ class Stack:
 class CallStack:
     """Holds positions that we will return to"""
     def __init__(self):
-        self.labels = {}
+        self.label_order = {}
+        self.label_list = []
         self.stack = []
         self.stack_top = -1
     
@@ -472,12 +499,13 @@ class CallStack:
         self.stack.pop()
         self.stack_top -= 1
 
-    def push(self,number):
-        self.stack.append(int(number))
+    def push(self,name):
+        self.stack.append(name)
         self.stack_top += 1
     
     def add_label(self,name,order):
-        self.labels[name] = order
+        self.label_order[name] = order
+        self.label_list.append(name)
 
 class DataStack:
     def __init__(self):
@@ -501,10 +529,7 @@ class DataStack:
 Execution = ExecuteProgram()
 
 #TODO:
-# CALL
 # RETURN
-# PUSHS
-# POPS
 # ADD
 # SUB
 # MUL
