@@ -64,6 +64,8 @@ class ExecuteProgram():
                     stack.pushs(instruction[0].attrib.get('type').upper(),instruction[0].text)
                 case "POPS":
                     stack.pops(instruction[0].text)
+                case "JUMP":
+                    instr_list.jump(instruction[0].text)
 
             #print(instr_index)
             instr_index += 1
@@ -253,11 +255,15 @@ class InstructionList:
 
     def call(self,name):
         global instr_index
-        #print(self.call_stack.label_order)
+        self.jump(name)
+        self.call_stack.push(name)
+
+    def jump(self,name):
+        global instr_index
         if name not in self.call_stack.label_list:
             exit(1) #TODO:errcode
         instr_index = self.order_dict[self.call_stack.label_order[name]]
-        self.call_stack.push(name)
+        
 
     def print_labels(self):
         print(self.call_stack.labels)
