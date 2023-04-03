@@ -107,7 +107,8 @@ class ExecuteProgram():
                     stack.write(instruction[0].text,instruction[0].attrib.get('type'))
                 case "BREAK":
                     stack.break_instr(instruction.attrib.get('order'),exec_instr_counter)
-
+                case "DPRINT":
+                    stack.write(instruction[0].text,instruction[0].attrib.get('type'),output=sys.stderr)
 
                 case other:
                     exit(1)
@@ -255,7 +256,7 @@ class InstructionList:
                 exit(1) #TODO:errcode
             return
         # arg1 = variable/const
-        elif instr_name in ['PUSHS','WRITE']:
+        elif instr_name in ['PUSHS','WRITE','DPRINT']:
             if instr_arg_num != 1:
                 exit(1) #TODO:errcode
             if instruction[0].attrib.get('type').upper() not in ['VAR','INT','STRING','BOOL','NIL']:
@@ -712,39 +713,49 @@ class Stack:
                 exit(1) #TODO:errcode unknown instruction
         self.assign(dest,new_value,new_type)
 
-    def write(self,to_write,to_write_type):
+    def write(self,to_write,to_write_type,output=sys.stdout):
         if to_write_type.upper() == "VAR":
             new_type,new_value = self.get_type_and_value(to_write)
         else:
             new_type = to_write_type.upper()
             new_value = to_write
-        print(new_type,new_value)
+        # print(new_type,new_value)
         match new_type:
             case "INT":
-                print(new_value,end='')
+                print(new_value,end='',file=output)
             case "BOOL":
                 if new_value == "true":
-                    print("true",end='')
+                    print("true",end='',file=output)
                 else:
-                    print("false",end='')
+                    print("false",end='',file=output)
             case "NIL":
                 print("",end='')
             case "STRING":
-                strings = new_value.split("\\")
-                if len(strings) == 1:
-                    print(new_value,end='')
+                substrings = self.remove_escape_sequence(new_value)
+                if substrings == None: # String without escape sequences
                     return
-                new_strings = []
-                new_strings.append(strings[0])
-                for substring in strings[1:]:
-                    new_char = chr(int(substring[0:3]))
-                    new_substring = substring.replace(substring[0:3],new_char,1)
-                    new_strings.append(new_substring)
-                for substring in new_strings:
-                    print(substring,end='')
+                for substr in substrings:
+                    print(substr,end='',file=output)
             case other:
                 exit(1)
-    
+
+    def remove_escape_sequence(self,string_to_modify):
+        """
+        Function removes escape sequences
+        @return: List of strings without escape sequences
+        """
+        buffer = string_to_modify.split("\\")
+        if len(buffer) == 1:
+            return buffer
+        new_buffer = []
+        new_buffer.append(buffer[0])
+        for substring in buffer[1:]:
+            new_char = chr(int(substring[0:3]))
+            new_substring = substring.replace(substring[0:3],new_char,1)
+            new_buffer.append(new_substring)
+        return new_buffer
+
+
     def break_instr(self,order,num_of_exec_instr):
         print("CONTROL OUTPUT:",file=sys.stderr)
         print("\tOrder of instruction: ",int(order),file=sys.stderr)
@@ -813,5 +824,3 @@ Execution = ExecuteProgram()
 # SETCHAR
 # JUMPIFEQ
 # JUMPIFNEQ
-# DPRINT
-# BREAK
