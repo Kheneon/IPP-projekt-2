@@ -101,6 +101,8 @@ class ExecuteProgram():
                 case "NOT":
                     stack.bool_operators(instr_name,instruction[0].text,instruction[1].text,
                     instruction[1].attrib.get('type'),None,None)
+                case "WRITE":
+                    stack.write(instruction[0].text,instruction[0].attrib.get('type'))
 
                 case other:
                     exit(1)
@@ -250,7 +252,7 @@ class InstructionList:
                 exit(1) #TODO:errcode
             return
         # arg1 = variable/const
-        elif instr_name in ['PUSHS']:
+        elif instr_name in ['PUSHS','WRITE']:
             if instr_arg_num != 1:
                 exit(1) #TODO:errcode
             if instruction[0].attrib.get('type').upper() not in ['VAR','INT','STRING','BOOL','NIL']:
@@ -707,6 +709,39 @@ class Stack:
                 exit(1) #TODO:errcode unknown instruction
         self.assign(dest,new_value,new_type)
 
+    def write(self,to_write,to_write_type):
+        if to_write_type.upper() == "VAR":
+            new_type,new_value = self.get_type_and_value(to_write)
+        else:
+            new_type = to_write_type.upper()
+            new_value = to_write
+        print(new_type,new_value)
+        match new_type:
+            case "INT":
+                print(new_value,end='')
+            case "BOOL":
+                if new_value == "true":
+                    print("true",end='')
+                else:
+                    print("false",end='')
+            case "NIL":
+                print("",end='')
+            case "STRING":
+                strings = new_value.split("\\")
+                if len(strings) == 1:
+                    print(new_value,end='')
+                    return
+                new_strings = []
+                new_strings.append(strings[0])
+                for substring in strings[1:]:
+                    new_char = chr(int(substring[0:3]))
+                    new_substring = substring.replace(substring[0:3],new_char,1)
+                    new_strings.append(new_substring)
+                for substring in new_strings:
+                    print(substring,end='')
+            case other:
+                exit(1)
+
 class CallStack:
     """Holds positions that we will return to"""
     def __init__(self):
@@ -755,7 +790,6 @@ Execution = ExecuteProgram()
 # INT2CHAR
 # STRI2INT
 # READ
-# WRITE
 # CONCAT
 # STRLEN
 # GETCHAR
