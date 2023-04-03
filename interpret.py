@@ -86,6 +86,14 @@ class ExecuteProgram():
                     instr_list.return_call()
                 case "EXIT":
                     instr_list.exit_call(instruction[0].text)
+                case "ADD"| "SUB" | "MUL" | "IDIV":
+                    stack.calculation(instr_name,instruction[0].text,instruction[1].text,
+                    instruction[1].attrib.get('type'),instruction[2].text,
+                    instruction[2].attrib.get('type'))
+
+
+                case other:
+                    exit(1)
 
 
             #print(instr_index)
@@ -270,7 +278,8 @@ class InstructionList:
                 exit(1) #TODO:errcode
             for i in range(instr_arg_num-1):
                 instr_type = instruction[i+1].attrib.get('type').upper()
-                if instr_type != "VAR" and instr_type != "INT":
+                print(instr_type)
+                if instr_type not in ['VAR','INT']:
                     exit(1) #TODO:errcode
             return
         
@@ -472,7 +481,13 @@ class Stack:
                     var.assign(new_value,new_type)
 
     def get_type_and_value(self,name):
-        """Function returns Value and Type of variable"""
+        """
+        Function returns Type and Value of variable
+        Exits program if frames are not initialized
+        Exits program if variable is uninitialized
+        """
+        if self.is_assigned(name) == False:
+            exit(1)
         if name[0:3] == "GF@":
             variables = self.frame_stack.global_frame.variables
         if name[0:3] == "LF@":
@@ -532,6 +547,46 @@ class Stack:
         var_to_save = self.data_stack.stack.pop()
         self.assign(var_name,var_to_save.value,var_to_save.var_type)
 
+    def calculation(self,type_of_calc,dest,src1,src1_type,src2,src2_type):
+        """
+        Function that provides calculation instructions [ADD,SUB,MUL,IDIV]\n
+        Exits program if:
+        - @param dest is not initalized
+        - @param src1 or src2 has bad type or has uninitalized values
+        """
+        if self.is_initialized(dest) == False:
+            exit(1)
+        if src1_type.upper() in ['VAR']:
+            src1_type,src1_value = self.get_type_and_value(src1)
+        else:
+            src1_value = src1
+        if src1_value.isdigit() == False:
+            exit(1) #TODO:errcode
+    
+        if src1_type.upper() not in ['INT']:
+            exit(1) #TODO:errcode 52
+        if src2_type.upper() in ['VAR']:
+            src2_type,src2_value = self.get_type_and_value(src2)
+        else:
+            src2_value = src2
+        if src2_type.upper() not in ['INT']:
+            exit(1) #TODO:errcode 52
+        if src1_value.isdigit() == False:
+            exit(2) #TODO:errcode
+        match type_of_calc.upper():
+            case 'ADD':
+                dest_value = int(src1_value) + int(src2_value)
+            case 'SUB':
+                dest_value = int(src1_value) - int(src2_value)
+            case 'MUL':
+                dest_value = int(src1_value) * int(src2_value)
+            case 'IDIV':
+                dest_value = int(int(src1_value) / int(src2_value))
+            case other:
+                exit(1)
+
+        self.assign(dest,dest_value,'INT')
+            
 class CallStack:
     """Holds positions that we will return to"""
     def __init__(self):
@@ -577,10 +632,6 @@ class DataStack:
 Execution = ExecuteProgram()
 
 #TODO:
-# ADD
-# SUB
-# MUL
-# IDIV
 # LT, GT, EQ
 # AND, OR, NOT
 # INT2CHAR
@@ -593,6 +644,5 @@ Execution = ExecuteProgram()
 # SETCHAR
 # JUMPIFEQ
 # JUMPIFNEQ
-# EXIT
 # DPRINT
 # BREAK
