@@ -59,7 +59,7 @@ class ExecuteProgram():
             instruction = instr_list.instruction_list[instr_index]
             instr_list.instruction_check(instruction)
             instr_name = instruction.attrib.get('opcode').upper()
-            #print("INSTRUCTION:",instr_name,"\nindex:",instr_index)
+            print("INSTRUCTION:",instr_name,"\nindex:",instr_index)
             match instr_name:
                 case "DEFVAR":
                     stack.defvar(instruction[0].text)
@@ -90,25 +90,28 @@ class ExecuteProgram():
                     instr_list.exit_call(instruction[0].text)
                 case "ADD"| "SUB" | "MUL" | "IDIV":
                     stack.calculation(instr_name,instruction[0].text,instruction[1].text,
-                    instruction[1].attrib.get('type'),instruction[2].text,
-                    instruction[2].attrib.get('type'))
+                                    instruction[1].attrib.get('type'),instruction[2].text,
+                                    instruction[2].attrib.get('type'))
                 case "LT" | "GT" | "EQ":
                     stack.relation_operators(instr_name,instruction[0].text,instruction[1].text,
-                    instruction[1].attrib.get('type'),instruction[2].text,
-                    instruction[2].attrib.get('type'))
+                                    instruction[1].attrib.get('type'),instruction[2].text,
+                                    instruction[2].attrib.get('type'))
                 case "AND" | "OR":
                     stack.bool_operators(instr_name,instruction[0].text,instruction[1].text,
-                    instruction[1].attrib.get('type'),instruction[2].text,
-                    instruction[2].attrib.get('type'))
+                                    instruction[1].attrib.get('type'),instruction[2].text,
+                                    instruction[2].attrib.get('type'))
                 case "NOT":
                     stack.bool_operators(instr_name,instruction[0].text,instruction[1].text,
-                    instruction[1].attrib.get('type'),None,None)
+                                        instruction[1].attrib.get('type'),None,None)
                 case "WRITE":
                     stack.write(instruction[0].text,instruction[0].attrib.get('type'))
                 case "BREAK":
                     stack.break_instr(instruction.attrib.get('order'),exec_instr_counter)
                 case "DPRINT":
                     stack.write(instruction[0].text,instruction[0].attrib.get('type'),output=sys.stderr)
+                case "INT2CHAR":
+                    stack.int2char(instruction[0].text,instruction[0].attrib.get('type'),
+                                instruction[1].text,instruction[1].attrib.get('type'))
 
                 case other:
                     exit(1)
@@ -284,6 +287,16 @@ class InstructionList:
                 exit(1) #TODO:errcode
             instr_name = instruction[1].attrib.get('type').upper()
             if instr_name not in ['VAR','INT','STRING','BOOL','NIL']:
+                exit(1) #TODO:errcode
+            return
+        # arg1 = var, arg2 = int/var
+        elif instr_name in ['INT2CHAR']:
+            if instr_arg_num != 2:
+                exit(1) #TODO: errcode
+            if instruction[0].attrib.get('type').upper() != "VAR":
+                exit(1) #TODO:errcode
+            instr_name = instruction[1].attrib.get('type').upper()
+            if instr_name not in ['VAR','INT']:
                 exit(1) #TODO:errcode
             return
         #arg1 = var, arg2 = var/int, arg3 = var/int
@@ -755,20 +768,32 @@ class Stack:
             new_buffer.append(new_substring)
         return new_buffer
 
-
     def break_instr(self,order,num_of_exec_instr):
         print("CONTROL OUTPUT:",file=sys.stderr)
         print("\tOrder of instruction: ",int(order),file=sys.stderr)
         print("\tExecuted instructions: ",num_of_exec_instr," (actual instruction included)",file=sys.stderr)
-        print("\tTemporary Frame:",file=sys.stderr)
+        print("\tTemporary Frame\t[initialized:",self.frame_stack.temp_frame.initialized,"]:",file=sys.stderr)
         for var in self.frame_stack.temp_frame.variables:
             print("\t\t[name] ",var.name,"\t[type] ",var.var_type,"\t[value] ",var.value,file=sys.stderr)
-        print("\tLocal Frame:",file=sys.stderr)
+        print("\tLocal Frame\t[initialized: ",self.frame_stack.local_frame.initialized,"]:",file=sys.stderr)
         for var in self.frame_stack.local_frame.variables:
             print("\t\t[name] ",var.name,"\t[type] ",var.var_type,"\t[value] ",var.value,file=sys.stderr)
         print("\tGlobal Frame:",file=sys.stderr)
         for var in self.frame_stack.global_frame.variables:
             print("\t\t[name] ",var.name,"\t[type] ",var.var_type,"\t[value] ",var.value,file=sys.stderr)
+
+    def int2char(self,dest,dest_type,src,src_type):
+        if src_type.upper() == "VAR":
+            new_type, new_value = self.get_type_and_value(src)
+        else:
+            new_type = src_type
+            new_value = src
+        try: new_value = chr(int(new_value))
+        except ValueError: exit(4) #TODO:errcode
+        except OverflowError: exit(5) #TODO:errcode
+        if self.is_initialized(dest) == False:
+            exit(1) #TODO:errcode
+        self.assign(dest,new_value,new_type)
 
 class CallStack:
     """Holds positions that we will return to"""
@@ -815,7 +840,6 @@ class DataStack:
 Execution = ExecuteProgram()
 
 #TODO:
-# INT2CHAR
 # STRI2INT
 # READ
 # CONCAT
