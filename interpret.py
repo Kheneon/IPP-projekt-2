@@ -94,6 +94,13 @@ class ExecuteProgram():
                     stack.relation_operators(instr_name,instruction[0].text,instruction[1].text,
                     instruction[1].attrib.get('type'),instruction[2].text,
                     instruction[2].attrib.get('type'))
+                case "AND" | "OR":
+                    stack.bool_operators(instr_name,instruction[0].text,instruction[1].text,
+                    instruction[1].attrib.get('type'),instruction[2].text,
+                    instruction[2].attrib.get('type'))
+                case "NOT":
+                    stack.bool_operators(instr_name,instruction[0].text,instruction[1].text,
+                    instruction[1].attrib.get('type'),None,None)
 
                 case other:
                     exit(1)
@@ -294,6 +301,26 @@ class InstructionList:
                 instr_type = instruction[i+1].attrib.get('type').upper()
                 if instr_type not in ['VAR','INT','BOOL','STRING','NIL']:
                     exit(1) #TODO:errcode
+            return
+        #arg1 = var, arg2 = var/bool, arg3 = var/bool
+        elif instr_name in ['AND','OR']:
+            if instr_arg_num != 3:
+                exit(1)
+            if instruction[0].attrib.get('type').upper() != "VAR":
+                exit(1) #TODO:errcode
+            for i in range(instr_arg_num-1):
+                instr_type = instruction[i+1].attrib.get('type').upper()
+                if instr_type not in ['BOOL','VAR']:
+                    exit(1) #TODO:errcode
+            return
+        #arg1 = var, arg2 = var/bool
+        elif instr_name in ['NOT']:
+            if instr_arg_num != 2:
+                exit(1)
+            if instruction[0].attrib.get('type').upper() != "VAR":
+                exit(1) #TODO:errcode
+            if instruction[1].attrib.get('type').upper() not in ['VAR','BOOL']:
+                exit(1) #TODO:errcode
             return
         else:
             exit(1) #TODO: errcode
@@ -641,6 +668,45 @@ class Stack:
                 exit(1) #TODO:errcode unknown instruction
         self.assign(dest,new_value,new_type)
 
+    def bool_operators(self,type_of_oper,dest,src1,src1_type,src2,src2_type):
+        new_value = "false"
+        new_type = "BOOL"
+        if self.is_initialized(dest) == False:
+            exit(1)
+
+        if src1_type.upper() in ['VAR']:
+            src1_type,src1_value = self.get_type_and_value(src1)
+        else:
+            src1_value = src1
+        if src1_type.upper() not in ['BOOL']:
+            exit(52) #TODO:errcode 52
+        
+        if type_of_oper.upper() != "NOT":
+            if src2_type.upper() in ['VAR']:
+                src2_type,src2_value = self.get_type_and_value(src2)
+            else:
+                src2_value = src2
+            if src2_type.upper() not in ['BOOL']:
+                exit(52) #TODO:errcode 52
+        else:
+            if src1_value == "true":
+                self.assign(dest,"false","BOOL")
+            else:
+                self.assign(dest,"true","BOOL")
+            return
+
+        match type_of_oper.upper():
+            case "AND":
+                if src1_value == src2_value:
+                    new_value = "true"
+            case "OR":
+                if src1_value != "false" or src2_value != "false":
+                    new_value = "true"
+                    
+            case other:
+                exit(1) #TODO:errcode unknown instruction
+        self.assign(dest,new_value,new_type)
+
 class CallStack:
     """Holds positions that we will return to"""
     def __init__(self):
@@ -686,8 +752,6 @@ class DataStack:
 Execution = ExecuteProgram()
 
 #TODO:
-# LT, GT, EQ
-# AND, OR, NOT
 # INT2CHAR
 # STRI2INT
 # READ
