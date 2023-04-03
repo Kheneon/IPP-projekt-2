@@ -90,7 +90,10 @@ class ExecuteProgram():
                     stack.calculation(instr_name,instruction[0].text,instruction[1].text,
                     instruction[1].attrib.get('type'),instruction[2].text,
                     instruction[2].attrib.get('type'))
-
+                case "LT" | "GT" | "EQ":
+                    stack.relation_operators(instr_name,instruction[0].text,instruction[1].text,
+                    instruction[1].attrib.get('type'),instruction[2].text,
+                    instruction[2].attrib.get('type'))
 
                 case other:
                     exit(1)
@@ -278,11 +281,20 @@ class InstructionList:
                 exit(1) #TODO:errcode
             for i in range(instr_arg_num-1):
                 instr_type = instruction[i+1].attrib.get('type').upper()
-                print(instr_type)
                 if instr_type not in ['VAR','INT']:
                     exit(1) #TODO:errcode
             return
-        
+        #arg1 = var, arg2 = var/const, arg3 = var/const
+        elif instr_name in ['LT','EQ','GT']:
+            if instr_arg_num != 3:
+                exit(1)
+            if instruction[0].attrib.get('type').upper() != "VAR":
+                exit(1) #TODO:errcode
+            for i in range(instr_arg_num-1):
+                instr_type = instruction[i+1].attrib.get('type').upper()
+                if instr_type not in ['VAR','INT','BOOL','STRING','NIL']:
+                    exit(1) #TODO:errcode
+            return
         else:
             exit(1) #TODO: errcode
         exit(1) #TODO: errcode
@@ -584,9 +596,51 @@ class Stack:
                 dest_value = int(int(src1_value) / int(src2_value))
             case other:
                 exit(1)
-
         self.assign(dest,dest_value,'INT')
             
+    def relation_operators(self,type_of_oper,dest,src1,src1_type,src2,src2_type):
+        if self.is_initialized(dest) == False:
+            exit(1)
+
+        if src1_type.upper() in ['VAR']:
+            src1_type,src1_value = self.get_type_and_value(src1)
+        else:
+            src1_value = src1
+        if src1_type.upper() not in ['INT','BOOL','STRING','NIL']:
+            exit(52) #TODO:errcode 52
+        
+        if src2_type.upper() in ['VAR']:
+            src2_type,src2_value = self.get_type_and_value(src2)
+        else:
+            src2_value = src2
+        if src2_type.upper() not in ['INT','BOOL','STRING','NIL']:
+            exit(52) #TODO:errcode 52
+        
+        new_value = "false"
+        new_type = "BOOL"
+        if src1_type != src2_type:
+            if type_of_oper.upper() == 'EQ':
+                if src1_type.upper() == "NIL" or src2_type.upper() == "NIL":
+                    self.assign(dest,new_value,new_type)
+                else:
+                    exit(1) #TODO:errcode
+            else:
+                exit(1) #TODO:errcode
+
+        match type_of_oper.upper():
+            case "EQ":
+                if src1_value == src2_value:
+                    new_value = "true"
+            case "LT":
+                if src1_value < src2_value:
+                    new_value = "true"
+            case "GT":
+                if src1_value > src2_value:
+                    new_value = "true"
+            case other:
+                exit(1) #TODO:errcode unknown instruction
+        self.assign(dest,new_value,new_type)
+
 class CallStack:
     """Holds positions that we will return to"""
     def __init__(self):
