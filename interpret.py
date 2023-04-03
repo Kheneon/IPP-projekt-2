@@ -60,9 +60,15 @@ class ExecuteProgram():
             instr_list.instruction_check(instruction)
             instr_name = instruction.attrib.get('opcode').upper()
             print("INSTRUCTION:",instr_name,"\nindex:",instr_index)
+            arg_name = []
+            arg_type = []
+            order = instruction.attrib.get('order')
+            for arg in instruction:
+                arg_name.append(arg.text)
+                arg_type.append(arg.attrib.get('type'))
             match instr_name:
                 case "DEFVAR":
-                    stack.defvar(instruction[0].text)
+                    stack.defvar(arg_name[0])
                 case "CREATEFRAME":
                     stack.create_frame()
                 case "PUSHFRAME":
@@ -72,46 +78,40 @@ class ExecuteProgram():
                 case "MOVE":
                     stack.move(instruction)
                 case "CALL":
-                    instr_list.call(instruction[0].text,instruction.attrib.get('order'))
+                    instr_list.call(arg_name[0],order)
                 case "LABEL":
                     instr_index += 1
                     continue
                 case "TYPE":
                     stack.to_type(instruction[0],instruction[1])
                 case "PUSHS":
-                    stack.pushs(instruction[0].attrib.get('type').upper(),instruction[0].text)
+                    stack.pushs(instruction[0].attrib.get('type').upper(),arg_name[0])
                 case "POPS":
-                    stack.pops(instruction[0].text)
+                    stack.pops(arg_name[0])
                 case "JUMP":
-                    instr_list.jump(instruction[0].text,instruction.attrib.get('order'))
+                    instr_list.jump(arg_name[0],order)
                 case "RETURN":
                     instr_list.return_call()
                 case "EXIT":
-                    instr_list.exit_call(instruction[0].text)
+                    instr_list.exit_call(arg_name[0])
                 case "ADD"| "SUB" | "MUL" | "IDIV":
-                    stack.calculation(instr_name,instruction[0].text,instruction[1].text,
-                                    instruction[1].attrib.get('type'),instruction[2].text,
-                                    instruction[2].attrib.get('type'))
+                    stack.calculation(instr_name,arg_name[0],arg_name[1],arg_type[1],arg_name[2],arg_type[2])
                 case "LT" | "GT" | "EQ":
-                    stack.relation_operators(instr_name,instruction[0].text,instruction[1].text,
-                                    instruction[1].attrib.get('type'),instruction[2].text,
-                                    instruction[2].attrib.get('type'))
+                    stack.relation_operators(instr_name,arg_name[0],arg_name[1],arg_type[1],arg_name[2],arg_type[2])
                 case "AND" | "OR":
-                    stack.bool_operators(instr_name,instruction[0].text,instruction[1].text,
-                                    instruction[1].attrib.get('type'),instruction[2].text,
-                                    instruction[2].attrib.get('type'))
+                    stack.bool_operators(instr_name,arg_name[0],arg_name[1],arg_type[1],arg_name[2],arg_type[2])
                 case "NOT":
-                    stack.bool_operators(instr_name,instruction[0].text,instruction[1].text,
-                                        instruction[1].attrib.get('type'),None,None)
+                    stack.bool_operators(instr_name,arg_name[0],arg_name[1],arg_type[1],None,None)
                 case "WRITE":
-                    stack.write(instruction[0].text,instruction[0].attrib.get('type'))
+                    stack.write(arg_name[0],arg_type[0])
                 case "BREAK":
-                    stack.break_instr(instruction.attrib.get('order'),exec_instr_counter)
+                    stack.break_instr(order,exec_instr_counter)
                 case "DPRINT":
-                    stack.write(instruction[0].text,instruction[0].attrib.get('type'),output=sys.stderr)
+                    stack.write(arg_name[0],arg_type[0],output=sys.stderr)
                 case "INT2CHAR":
-                    stack.int2char(instruction[0].text,instruction[0].attrib.get('type'),
-                                instruction[1].text,instruction[1].attrib.get('type'))
+                    stack.int2char(arg_name[0],arg_type[0],arg_name[1],arg_type[1])
+                case "STRI2INT":
+                    stack.stri2int(arg_name[0],arg_name[1],arg_type[1],arg_name[2],arg_type[2])
 
                 case other:
                     exit(1)
@@ -246,104 +246,111 @@ class InstructionList:
 
         instr_name = instruction.attrib.get('opcode').upper()
         instr_arg_num = len(instruction)
-        #no arguments
-        if instr_name in ['CREATEFRAME','PUSHFRAME','POPFRAME','RETURN','BREAK']:
-            if instr_arg_num != 0:
+        param = []
+        self.check_num_of_params(instr_name,instr_arg_num)
+        for index in range(instr_arg_num):
+            param.append(instruction[index].attrib.get('type').upper())
+        match instr_name:
+            # no arguments
+            case "CREATEFRAME" | "PUSHFRAME" | "POPFRAME" | "RETURN" | "BREAK":
+                return
+            # arg1 = var
+            case "DEFVAR" | "POPS":
+                self.is_param_var(param[0])
+            # arg1 = var/const
+            case "PUSHS" | "WRITE" | "DPRINT":
+                self.is_param_var_or_const(param[0])
+            # arg1 = label
+            case "LABEL" | "CALL" | "JUMP":
+                self.is_param_label(param[0])
+            # arg1 = int
+            case "EXIT":
+                self.is_param_int(param[0])
+            # arg1 = var, arg2 = const/var
+            case "MOVE" | "TYPE":
+                self.is_param_var(param[0])
+                self.is_param_var_or_const(param[1])
+            # arg1 = var, arg2 = int/var
+            case "INT2CHAR":
+                self.is_param_var(param[0])
+                self.is_param_var_or_int(param[1])
+            # arg1 = var, arg2 = var/int, arg3 = var/int
+            case "ADD" | "SUB" | "MUL" | "IDIV":
+                self.is_param_var(param[0])
+                self.is_param_var_or_int(param[1])
+                self.is_param_var_or_int(param[2])
+            # arg1 = var, arg2 = var/const, arg3 = var/const
+            case "LT" | "GT" | "EQ":
+                self.is_param_var(param[0])
+                self.is_param_var_or_const(param[1])
+                self.is_param_var_or_const(param[2])
+            # arg1 = var, arg2 = var/bool, arg3 = var/bool
+            case "AND" | "OR":
+                self.is_param_var(param[0])
+                self.is_param_var_or_bool(param[1])
+                self.is_param_var_or_bool(param[2])
+            # arg1 = var, arg2 = var/bool
+            case "NOT":
+                self.is_param_var(param[0])
+                self.is_param_var_or_bool(param[1])
+            # arg1 = var, arg2 = var/string, arg3 = var/int
+            case "STRI2INT":
+                self.is_param_var(param[0])
+                self.is_param_var_or_string(param[1])
+                self.is_param_var_or_int(param[2])
+            case other:
                 exit(1)
-            return
-        # arg1 = variable
-        elif instr_name in ['DEFVAR','POPS']:
-            if instr_arg_num != 1:
-                exit(1) #TODO:errcode
-            if instruction[0].attrib.get('type').upper() != "VAR":
-                exit(1) #TODO:errcode
-            return
-        # arg1 = variable/const
-        elif instr_name in ['PUSHS','WRITE','DPRINT']:
-            if instr_arg_num != 1:
-                exit(1) #TODO:errcode
-            if instruction[0].attrib.get('type').upper() not in ['VAR','INT','STRING','BOOL','NIL']:
-                exit(1) #TODO:errcode
-            return
-        # arg1 = label
-        elif instr_name in ['LABEL','CALL','JUMP']:
-            if instr_arg_num != 1:
-                exit(1) #TODO:errcode
-            if instruction[0].attrib.get('type').upper() != "LABEL":
-                exit(1) #TODO:errcode
-            return
-        # arg1 = INT
-        elif instr_name in ['EXIT']:
-            if instr_arg_num != 1:
-                exit(1) #TODO:errcode
-            if instruction[0].attrib.get('type').upper() != "INT":
-                exit(1) #TODO:errcode
-            return
-        # arg1 = var, arg2 = const/var
-        elif instr_name in ['MOVE','TYPE']:
-            if instr_arg_num != 2:
-                exit(1) #TODO: errcode
-            if instruction[0].attrib.get('type').upper() != "VAR":
-                exit(1) #TODO:errcode
-            instr_name = instruction[1].attrib.get('type').upper()
-            if instr_name not in ['VAR','INT','STRING','BOOL','NIL']:
-                exit(1) #TODO:errcode
-            return
-        # arg1 = var, arg2 = int/var
-        elif instr_name in ['INT2CHAR']:
-            if instr_arg_num != 2:
-                exit(1) #TODO: errcode
-            if instruction[0].attrib.get('type').upper() != "VAR":
-                exit(1) #TODO:errcode
-            instr_name = instruction[1].attrib.get('type').upper()
-            if instr_name not in ['VAR','INT']:
-                exit(1) #TODO:errcode
-            return
-        #arg1 = var, arg2 = var/int, arg3 = var/int
-        elif instr_name in ['ADD','SUB','MUL','IDIV']:
-            if instr_arg_num != 3:
+
+    def check_num_of_params(self,name,value):
+        """
+        Function check if instruction has right ammount of parameters.\n
+        Otherwise exits program
+        """
+        name_upper = name.upper()
+        if value == 0:
+            if name_upper not in ['CREATEFRAME','PUSHFRAME','POPFRAME','RETURN','BREAK']:
                 exit(1)
-            if instruction[0].attrib.get('type').upper() != "VAR":
-                exit(1) #TODO:errcode
-            for i in range(instr_arg_num-1):
-                instr_type = instruction[i+1].attrib.get('type').upper()
-                if instr_type not in ['VAR','INT']:
-                    exit(1) #TODO:errcode
-            return
-        #arg1 = var, arg2 = var/const, arg3 = var/const
-        elif instr_name in ['LT','EQ','GT']:
-            if instr_arg_num != 3:
+        if value == 1:
+            if name_upper not in ['DEFVAR','CALL','PUSHS','POPS','WRITE','LABEL','JUMP','EXIT','DPRINT']:
                 exit(1)
-            if instruction[0].attrib.get('type').upper() != "VAR":
-                exit(1) #TODO:errcode
-            for i in range(instr_arg_num-1):
-                instr_type = instruction[i+1].attrib.get('type').upper()
-                if instr_type not in ['VAR','INT','BOOL','STRING','NIL']:
-                    exit(1) #TODO:errcode
-            return
-        #arg1 = var, arg2 = var/bool, arg3 = var/bool
-        elif instr_name in ['AND','OR']:
-            if instr_arg_num != 3:
+        if value == 2:
+            if name_upper not in ['MOVE','INT2CHAR','READ','STRLEN','TYPE','NOT']:
                 exit(1)
-            if instruction[0].attrib.get('type').upper() != "VAR":
-                exit(1) #TODO:errcode
-            for i in range(instr_arg_num-1):
-                instr_type = instruction[i+1].attrib.get('type').upper()
-                if instr_type not in ['BOOL','VAR']:
-                    exit(1) #TODO:errcode
-            return
-        #arg1 = var, arg2 = var/bool
-        elif instr_name in ['NOT']:
-            if instr_arg_num != 2:
+        if value == 3:
+            if name_upper not in ['ADD','SUB','MUL','IDIV','LT','GT','EQ','AND','OR','STRI2INT','CONCAT','GETCHAR','SETCHAR','JUMPIFEQ','JUMPIFNEQ']:
                 exit(1)
-            if instruction[0].attrib.get('type').upper() != "VAR":
-                exit(1) #TODO:errcode
-            if instruction[1].attrib.get('type').upper() not in ['VAR','BOOL']:
-                exit(1) #TODO:errcode
-            return
-        else:
-            exit(1) #TODO: errcode
-        exit(1) #TODO: errcode
+
+    def is_param_var(self,type_to_check):
+        if type_to_check.upper() != "VAR":
+            exit(1)
+    
+    def is_param_int(self,type_to_check):
+        if type_to_check.upper() != "INT":
+            exit(1)
+
+    def is_param_var_or_const(self,type_to_check):
+        if type_to_check.upper() not in ['VAR','INT','BOOL','STRING','NIL']:
+            exit(1)
+
+    def is_param_label(self,type_to_check):
+        if type_to_check.upper() != "LABEL":
+            exit(1)
+
+    def is_param_int(self,type_to_check):
+        if type_to_check.upper() != "INT":
+            exit(1)
+
+    def is_param_var_or_int(self,type_to_check):
+        if type_to_check.upper() not in ['VAR','INT']:
+            exit(1)
+
+    def is_param_var_or_bool(self,type_to_check):
+        if type_to_check.upper() not in ['VAR','BOOL']:
+            exit(1)
+
+    def is_param_var_or_string(self,type_to_check):
+        if type_to_check.upper() not in ['VAR','STRING']:
+            exit(1)
 
     def call(self,name,order):
         global instr_index
@@ -795,6 +802,27 @@ class Stack:
             exit(1) #TODO:errcode
         self.assign(dest,new_value,new_type)
 
+    def stri2int(self,dest,src1,src1_type,src2,src2_type):
+        if self.is_initialized(dest) == False:
+            exit(1) #TODO:errcode
+        if src1_type == "VAR":
+            src1_new_type, src1_new_value = self.get_type_and_value(src1)
+        else:
+            src1_new_type = src1_type
+            src1_new_value = src1
+        if src2_type == "VAR":
+            src2_new_type, src2_new_value = self.get_type_and_value(src2)
+        else:
+            src2_new_type = src2_type
+            src2_new_value = src2
+        src1_len = len(src1_new_value)
+        print(src1_len)
+        if src1_len <= int(src2_new_value):
+            exit(1)
+        dest_value = ord(src1_new_value[int(src2_new_value)])
+        self.assign(dest,dest_value,"INT")
+        
+
 class CallStack:
     """Holds positions that we will return to"""
     def __init__(self):
@@ -840,7 +868,6 @@ class DataStack:
 Execution = ExecuteProgram()
 
 #TODO:
-# STRI2INT
 # READ
 # CONCAT
 # STRLEN
