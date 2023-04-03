@@ -48,16 +48,18 @@ class ExecuteProgram():
         instr_list = InstructionList(self.source_file,self.input_file)
         stack = Stack()
         instr_list_length = len(instr_list.instruction_list)
-        print("[DEBUG]order_list:\n",instr_list.order_list)
-        print("[DEBUG]order_dict:\n",instr_list.order_dict)
-        print("[DEBUG]label_list:\n",instr_list.call_stack.label_list)
-        print("[DEBUG]label_order:\n",instr_list.call_stack.label_order)
-        print("[DEBUG] executing:")
+        # print("[DEBUG]order_list:\n",instr_list.order_list)
+        # print("[DEBUG]order_dict:\n",instr_list.order_dict)
+        # print("[DEBUG]label_list:\n",instr_list.call_stack.label_list)
+        # print("[DEBUG]label_order:\n",instr_list.call_stack.label_order)
+        # print("[DEBUG] executing:")
+        exec_instr_counter = 0
         while instr_index < instr_list_length:
+            exec_instr_counter += 1
             instruction = instr_list.instruction_list[instr_index]
             instr_list.instruction_check(instruction)
             instr_name = instruction.attrib.get('opcode').upper()
-            print("INSTRUCTION:",instr_name,"\nindex:",instr_index)
+            #print("INSTRUCTION:",instr_name,"\nindex:",instr_index)
             match instr_name:
                 case "DEFVAR":
                     stack.defvar(instruction[0].text)
@@ -103,12 +105,13 @@ class ExecuteProgram():
                     instruction[1].attrib.get('type'),None,None)
                 case "WRITE":
                     stack.write(instruction[0].text,instruction[0].attrib.get('type'))
+                case "BREAK":
+                    stack.break_instr(instruction.attrib.get('order'),exec_instr_counter)
+
 
                 case other:
                     exit(1)
 
-
-            #print(instr_index)
             instr_index += 1
 
 
@@ -120,10 +123,10 @@ class ExecuteProgram():
         #stack.create_frame()
         #stack.push_frame()
 
-        print("[DEBUG] State after execution:")
-        stack.write_frames()
-        instr_list.print_labels()
-        stack.data_stack.write_data_stack()
+        #print("[DEBUG] State after execution:")
+        #stack.write_frames()
+        #instr_list.print_labels()
+        #stack.data_stack.write_data_stack()
 
     def input_parameters(self,argv):
         """
@@ -240,7 +243,7 @@ class InstructionList:
         instr_name = instruction.attrib.get('opcode').upper()
         instr_arg_num = len(instruction)
         #no arguments
-        if instr_name in ['CREATEFRAME','PUSHFRAME','POPFRAME','RETURN']:
+        if instr_name in ['CREATEFRAME','PUSHFRAME','POPFRAME','RETURN','BREAK']:
             if instr_arg_num != 0:
                 exit(1)
             return
@@ -741,6 +744,20 @@ class Stack:
                     print(substring,end='')
             case other:
                 exit(1)
+    
+    def break_instr(self,order,num_of_exec_instr):
+        print("CONTROL OUTPUT:",file=sys.stderr)
+        print("\tOrder of instruction: ",int(order),file=sys.stderr)
+        print("\tExecuted instructions: ",num_of_exec_instr," (actual instruction included)",file=sys.stderr)
+        print("\tTemporary Frame:",file=sys.stderr)
+        for var in self.frame_stack.temp_frame.variables:
+            print("\t\t[name] ",var.name,"\t[type] ",var.var_type,"\t[value] ",var.value,file=sys.stderr)
+        print("\tLocal Frame:",file=sys.stderr)
+        for var in self.frame_stack.local_frame.variables:
+            print("\t\t[name] ",var.name,"\t[type] ",var.var_type,"\t[value] ",var.value,file=sys.stderr)
+        print("\tGlobal Frame:",file=sys.stderr)
+        for var in self.frame_stack.global_frame.variables:
+            print("\t\t[name] ",var.name,"\t[type] ",var.var_type,"\t[value] ",var.value,file=sys.stderr)
 
 class CallStack:
     """Holds positions that we will return to"""
