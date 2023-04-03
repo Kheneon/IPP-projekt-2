@@ -11,8 +11,7 @@
 #########################################
 import re
 import sys
-import xml.etree.ElementTree as elemTree
-#import atexit   
+import xml.etree.ElementTree as elemTree  
 
 # Exit codes:
 # 10 - missing parameter or forbiden combination of params
@@ -24,16 +23,8 @@ import xml.etree.ElementTree as elemTree
 #
 # 52 - redefinition of variable
 
-#def exit_handler():
-#    print("[DEBUG] exit debug write:")
-#    print("[DEBUG]order_list:\n",Execution.instr_list.order_list)
-#    print("[DEBUG]order_dict:\n",Execution.instr_list.order_dict)
-#    print("[DEBUG]label_list:\n",Execution.instr_list.call_stack.label_list)
-#atexit.register(exit_handler)
-
-
-
 instr_index = 0
+file = None
 
 class ExecuteProgram():
     """
@@ -44,8 +35,11 @@ class ExecuteProgram():
     input_file = ""
     def __init__(self):
         global instr_index
+        global file
         self.input_parameters(sys.argv)
         instr_list = InstructionList(self.source_file,self.input_file)
+        if self.input_file != "":
+            file = open(self.input_file,"r")
         stack = Stack()
         instr_list_length = len(instr_list.instruction_list)
         # print("[DEBUG]order_list:\n",instr_list.order_list)
@@ -60,12 +54,13 @@ class ExecuteProgram():
             instr_list.instruction_check(instruction)
             instr_name = instruction.attrib.get('opcode').upper()
             print("INSTRUCTION:",instr_name,"\nindex:",instr_index)
-            arg_name = []
-            arg_type = []
+            arg_name = [None] * len(instruction)
+            arg_type = [None] * len(instruction)
             order = instruction.attrib.get('order')
             for arg in instruction:
-                arg_name.append(arg.text)
-                arg_type.append(arg.attrib.get('type'))
+                index = int(arg.tag[3])-1
+                arg_name[index] = arg.text
+                arg_type[index] = arg.attrib.get('type')
             match instr_name:
                 case "DEFVAR":
                     stack.defvar(arg_name[0])
@@ -112,12 +107,14 @@ class ExecuteProgram():
                     stack.int2char(arg_name[0],arg_type[0],arg_name[1],arg_type[1])
                 case "STRI2INT":
                     stack.stri2int(arg_name[0],arg_name[1],arg_type[1],arg_name[2],arg_type[2])
-
+                case "READ":
+                    stack.read(arg_name[0],arg_name[1])
                 case other:
                     exit(1)
 
             instr_index += 1
-
+        if file != None:
+            file.close()
 
 
         #testing
@@ -236,20 +233,24 @@ class InstructionList:
 
 
     def instruction_check(self,instruction):
-        # instruction tag control
-        counter = 1
+        # instruction tag control (arg1,arg2,arg3)
+        arg_num = len(instruction)
+        arg_list = []
+        for index in range(arg_num):
+            arg_name = "arg"+str(index+1)
+            arg_list.append(arg_name)
+
         for arg in instruction:
-            arg_name = "arg" + str(counter)
-            if arg.tag != arg_name:
-                print(arg_name,arg.text)
-            counter += 1
+            if arg.tag not in arg_list:
+                exit(1)
+            arg_list.remove(arg.tag)
 
         instr_name = instruction.attrib.get('opcode').upper()
         instr_arg_num = len(instruction)
-        param = []
+        param = [None] * instr_arg_num
         self.check_num_of_params(instr_name,instr_arg_num)
-        for index in range(instr_arg_num):
-            param.append(instruction[index].attrib.get('type').upper())
+        for arg in instruction:
+            param[int(arg.tag[3])-1] = arg.attrib.get('type')
         match instr_name:
             # no arguments
             case "CREATEFRAME" | "PUSHFRAME" | "POPFRAME" | "RETURN" | "BREAK":
@@ -298,6 +299,9 @@ class InstructionList:
                 self.is_param_var(param[0])
                 self.is_param_var_or_string(param[1])
                 self.is_param_var_or_int(param[2])
+            case "READ":
+                self.is_param_var(param[0])
+                self.is_param_type(param[1])
             case other:
                 exit(1)
 
@@ -350,6 +354,10 @@ class InstructionList:
 
     def is_param_var_or_string(self,type_to_check):
         if type_to_check.upper() not in ['VAR','STRING']:
+            exit(1)
+
+    def is_param_type(self,type_to_check):
+        if type_to_check.upper() not in ['TYPE']:
             exit(1)
 
     def call(self,name,order):
@@ -800,7 +808,7 @@ class Stack:
         except OverflowError: exit(5) #TODO:errcode
         if self.is_initialized(dest) == False:
             exit(1) #TODO:errcode
-        self.assign(dest,new_value,new_type)
+        self.assign(dest,new_value,new_type.upper())
 
     def stri2int(self,dest,src1,src1_type,src2,src2_type):
         if self.is_initialized(dest) == False:
@@ -821,6 +829,36 @@ class Stack:
             exit(1)
         dest_value = ord(src1_new_value[int(src2_new_value)])
         self.assign(dest,dest_value,"INT")
+
+    def read(self,dest,read_type):
+        global file
+        if file == None: #reading from stdin
+            line = sys.stdin.readline()
+        else: #reading from file
+            line = file.readline()
+        new_type = read_type.upper()
+        if not line:
+            value = "nil"
+            new_type = "NIL"
+        else:
+            match read_type.upper():
+                case "INT":
+                    try: value = int(line)
+                    except ValueError:
+                        value = "nil"
+                        new_type = "NIL"
+                case "STRING":
+                    value = line
+                case "BOOL":
+                    if line == "true":
+                        value = "true"
+                    else:
+                        value = "false"
+
+                case other:
+                    exit(1)
+        self.assign(dest,value,new_type.upper())
+
         
 
 class CallStack:
