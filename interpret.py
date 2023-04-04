@@ -13,16 +13,6 @@ import re
 import sys
 import xml.etree.ElementTree as elemTree  
 
-# Exit codes:
-# 10 - missing parameter or forbiden combination of params
-# 11 - open file failure
-# 12 - file to write failure
-# 
-# 31 - XML file is not "well-formed"
-# 32 - unexpected structure of XML
-#
-# 52 - redefinition of variable
-
 instr_index = 0
 file = None
 
@@ -30,6 +20,7 @@ class ExecuteProgram():
     """
     Checks arguments\n
     Parses XML file\n
+    Runs program
     """
     source_file = ""
     input_file = ""
@@ -53,7 +44,7 @@ class ExecuteProgram():
             instruction = instr_list.instruction_list[instr_index]
             instr_list.instruction_check(instruction)
             instr_name = instruction.attrib.get('opcode').upper()
-            #print("INSTRUCTION:",instr_name,"\nindex:",instr_index)
+            print("INSTRUCTION:",instr_name,"\nindex:",instr_index)
             arg_name = [None] * len(instruction)
             arg_type = [None] * len(instruction)
             order = instruction.attrib.get('order')
@@ -78,7 +69,7 @@ class ExecuteProgram():
                     instr_index += 1
                     continue
                 case "TYPE":
-                    stack.to_type(instruction[0],instruction[1])
+                    stack.to_type(arg_name[0],arg_name[1],arg_name[1])
                 case "PUSHS":
                     stack.pushs(instruction[0].attrib.get('type').upper(),arg_name[0])
                 case "POPS":
@@ -127,19 +118,6 @@ class ExecuteProgram():
             instr_index += 1
         if file != None:
             file.close()
-
-
-        #testing
-        #stack.create_frame()
-        
-        #stack.push_frame()
-        #stack.create_frame()
-        #stack.push_frame()
-
-        #print("[DEBUG] State after execution:")
-        #stack.write_frames()
-        #instr_list.print_labels()
-        #stack.data_stack.write_data_stack()
 
     def input_parameters(self,argv):
         """
@@ -527,7 +505,7 @@ class Stack:
         if instruction[1].attrib.get('type').upper() == 'VAR':
             if self.is_assigned(instruction[0].text) == False:
                 exit(1) #TODO: errcode
-            new_type,new_value = self.get_type_and_value(instruction[1].text)
+            new_type,new_value = self.get_type_and_value(instruction[1].text,instruction[0].attrib.get('type'))
         else: # int, string, bool, nil
             new_type = instruction[1].attrib.get('type').upper()
             if new_type not in ['STRING','BOOL','NIL','INT']:
@@ -535,23 +513,17 @@ class Stack:
             new_value = instruction[1].text
         self.assign(instruction[0].text,new_value,new_type)
 
-    def to_type(self,dest,src):
+    def to_type(self,dest,src,src_type):
         """
         Function takes on input
         @param: dest Name of variable. Where to save result of operation
         @param: src  Scans this variable and constant, type saves into dest
         """
-        if self.is_initialized(dest.text) == False:
+        if self.is_initialized(dest) == False:
             exit(1)
-        src_type = src.attrib.get('type').upper()
-        if src_type == 'VAR':
-            if self.is_assigned(src.text) == False:
-                exit(1) #TODO: errcode
-            new_value,_ = self.get_type_and_value(src.text)
-            new_type = "STRING"
-            self.assign(dest.text,new_value,new_type)
-        elif src_type in ['INT','STRING','BOOL','NIL']:
-            self.assign(dest.text,src_type.lower(),"STRING")
+        new_value,new_type = self.get_type_and_value(src,src_type)
+        new_type = "STRING"
+        self.assign(dest,new_value.lower(),new_type)
 
     def is_initialized(self,name):
         """Function checks if variable is initialized"""
@@ -584,26 +556,29 @@ class Stack:
                 if var.name == name[3:]:
                     var.assign(new_value,new_type)
 
-    def get_type_and_value(self,name):
+    def get_type_and_value(self,variable,variable_type):
         """
-        Function returns Type and Value of variable
-        Exits program if frames are not initialized
+        Function returns Type and Value of variable\n
+        If it is not variable, but constant, returns constant\n
+        Exits program if frames are not initialized\n
         Exits program if variable is uninitialized
         """
-        if self.is_assigned(name) == False:
+        if variable_type.upper() != "VAR":
+            return variable_type,variable
+        if self.is_assigned(variable) == False:
             exit(1)
-        if name[0:3] == "GF@":
+        if variable[0:3] == "GF@":
             variables = self.frame_stack.global_frame.variables
-        if name[0:3] == "LF@":
+        elif variable[0:3] == "LF@":
             if self.frame_stack.local_frame.initialized == False:
                 exit(1) #uninitalized frame TODO: errcode
             variables = self.frame_stack.local_frame.variables
-        if name[0:3] == "TF@":
+        elif variable[0:3] == "TF@":
             if self.frame_stack.temp_frame.initialized == False:
                 exit(1) #uninitalized frame TODO: errcode
             variables = self.frame_stack.temp_frame.variables
         for var in variables:
-            if name[3:] == var.name:
+            if variable[3:] == var.name:
                 return var.var_type,var.value
 
     def is_assigned(self,name):
@@ -636,13 +611,9 @@ class Stack:
         self.frame_stack.global_frame.write_var()
 
     def pushs(self,var_type,value):
-        if var_type == "VAR":
-            if self.is_assigned(value) == False:
-                exit(1) #TODO: errcode
-            new_type,new_value = self.get_type_and_value(value)
-        elif var_type in ['STRING','BOOL','INT','NIL']:
-            new_type = var_type.upper()
-            new_value = value
+        new_type,new_value = self.get_type_and_value(value,var_type)
+        new_type = var_type.upper()
+        new_value = value
         self.data_stack.push(new_value,new_type)
 
     def pops(self,var_name):
@@ -660,32 +631,22 @@ class Stack:
         """
         if self.is_initialized(dest) == False:
             exit(1)
-        if src1_type.upper() in ['VAR']:
-            src1_type,src1_value = self.get_type_and_value(src1)
-        else:
-            src1_value = src1
-        if src1_value.isdigit() == False:
+        new_src1_type,new_src1_value = self.get_type_and_value(src1,src1_type)
+        if new_src1_type.upper() != "INT":
             exit(1) #TODO:errcode
     
-        if src1_type.upper() not in ['INT']:
+        new_src2_type,new_src2_value = self.get_type_and_value(src2,src2_type)
+        if new_src2_type.upper() != "INT":
             exit(1) #TODO:errcode 52
-        if src2_type.upper() in ['VAR']:
-            src2_type,src2_value = self.get_type_and_value(src2)
-        else:
-            src2_value = src2
-        if src2_type.upper() not in ['INT']:
-            exit(1) #TODO:errcode 52
-        if src1_value.isdigit() == False:
-            exit(2) #TODO:errcode
         match type_of_calc.upper():
             case 'ADD':
-                dest_value = int(src1_value) + int(src2_value)
+                dest_value = int(new_src1_value) + int(new_src2_value)
             case 'SUB':
-                dest_value = int(src1_value) - int(src2_value)
+                dest_value = int(new_src1_value) - int(new_src2_value)
             case 'MUL':
-                dest_value = int(src1_value) * int(src2_value)
+                dest_value = int(new_src1_value) * int(new_src2_value)
             case 'IDIV':
-                dest_value = int(int(src1_value) / int(src2_value))
+                dest_value = int(int(new_src1_value) / int(new_src2_value))
             case other:
                 exit(1)
         self.assign(dest,dest_value,'INT')
@@ -694,19 +655,8 @@ class Stack:
         if self.is_initialized(dest) == False:
             exit(1)
 
-        if src1_type.upper() in ['VAR']:
-            src1_type,src1_value = self.get_type_and_value(src1)
-        else:
-            src1_value = src1
-        if src1_type.upper() not in ['INT','BOOL','STRING','NIL']:
-            exit(52) #TODO:errcode 52
-        
-        if src2_type.upper() in ['VAR']:
-            src2_type,src2_value = self.get_type_and_value(src2)
-        else:
-            src2_value = src2
-        if src2_type.upper() not in ['INT','BOOL','STRING','NIL']:
-            exit(52) #TODO:errcode 52
+        src1_type,src1_value = self.get_type_and_value(src1,src1_type)
+        src2_type,src2_value = self.get_type_and_value(src2,src2_type)
         
         new_value = "false"
         new_type = "BOOL"
@@ -739,22 +689,17 @@ class Stack:
         if self.is_initialized(dest) == False:
             exit(1)
 
-        if src1_type.upper() in ['VAR']:
-            src1_type,src1_value = self.get_type_and_value(src1)
-        else:
-            src1_value = src1
-        if src1_type.upper() not in ['BOOL']:
+        new_src1_type,new_src1_value = self.get_type_and_value(src1,src1_type)
+
+        if new_src1_type.upper() not in ['BOOL']:
             exit(52) #TODO:errcode 52
         
         if type_of_oper.upper() != "NOT":
-            if src2_type.upper() in ['VAR']:
-                src2_type,src2_value = self.get_type_and_value(src2)
-            else:
-                src2_value = src2
-            if src2_type.upper() not in ['BOOL']:
+            new_src2_type,new_src2_value = self.get_type_and_value(src2,src2_type)
+            if new_src2_type.upper() not in ['BOOL']:
                 exit(52) #TODO:errcode 52
         else:
-            if src1_value == "true":
+            if new_src1_value == "true":
                 self.assign(dest,"false","BOOL")
             else:
                 self.assign(dest,"true","BOOL")
@@ -762,10 +707,10 @@ class Stack:
 
         match type_of_oper.upper():
             case "AND":
-                if src1_value == src2_value:
+                if new_src1_value == new_src2_value:
                     new_value = "true"
             case "OR":
-                if src1_value != "false" or src2_value != "false":
+                if new_src1_value != "false" or new_src2_value != "false":
                     new_value = "true"
                     
             case other:
@@ -773,13 +718,8 @@ class Stack:
         self.assign(dest,new_value,new_type)
 
     def write(self,to_write,to_write_type,output=sys.stdout):
-        if to_write_type.upper() == "VAR":
-            new_type,new_value = self.get_type_and_value(to_write)
-        else:
-            new_type = to_write_type.upper()
-            new_value = to_write
-        # print(new_type,new_value)
-        match new_type:
+        new_type,new_value = self.get_type_and_value(to_write,to_write_type)
+        match new_type.upper():
             case "INT":
                 print(new_value,end='',file=output)
             case "BOOL":
@@ -796,6 +736,7 @@ class Stack:
                 for substr in substrings:
                     print(substr,end='',file=output)
             case other:
+                print(new_type)
                 exit(1)
 
     def remove_escape_sequence(self,string_to_modify):
@@ -829,11 +770,7 @@ class Stack:
             print("\t\t[name] ",var.name,"\t[type] ",var.var_type,"\t[value] ",var.value,file=sys.stderr)
 
     def int2char(self,dest,dest_type,src,src_type):
-        if src_type.upper() == "VAR":
-            new_type, new_value = self.get_type_and_value(src)
-        else:
-            new_type = src_type
-            new_value = src
+        new_type, new_value = self.get_type_and_value(src,src_type)
         try: new_value = chr(int(new_value))
         except ValueError: exit(4) #TODO:errcode
         except OverflowError: exit(5) #TODO:errcode
@@ -844,16 +781,9 @@ class Stack:
     def stri2int(self,dest,src1,src1_type,src2,src2_type):
         if self.is_initialized(dest) == False:
             exit(1) #TODO:errcode
-        if src1_type == "VAR":
-            src1_new_type, src1_new_value = self.get_type_and_value(src1)
-        else:
-            src1_new_type = src1_type
-            src1_new_value = src1
-        if src2_type == "VAR":
-            src2_new_type, src2_new_value = self.get_type_and_value(src2)
-        else:
-            src2_new_type = src2_type
-            src2_new_value = src2
+        src1_new_type, src1_new_value = self.get_type_and_value(src1,src1_type)
+        src2_new_type, src2_new_value = self.get_type_and_value(src2,src2_type)
+        
         src1_len = len(src1_new_value)
         print(src1_len)
         if src1_len <= int(src2_new_value):
@@ -894,19 +824,11 @@ class Stack:
         if self.is_initialized(dest) == False:
             exit(1)
         
-        if src1_type.upper() == "VAR":
-            new_src1_type, new_src1_val = self.get_type_and_value(src1)
-        else:
-            new_src1_type = src1_type
-            new_src1_val = src1
+        new_src1_type, new_src1_val = self.get_type_and_value(src1,src1_type)
         if new_src1_type.upper() != "STRING":
             exit(1)
 
-        if src2_type.upper() == "VAR":
-            new_src2_type, new_src2_val = self.get_type_and_value(src2)
-        else:
-            new_src2_type = src2_type
-            new_src2_val = src2
+        new_src2_type, new_src2_val = self.get_type_and_value(src2,src2_type)
         if new_src2_type.upper() != "STRING":
             exit(1)
 
@@ -917,11 +839,7 @@ class Stack:
         if self.is_initialized(dest) == False:
             exit(1)
 
-        if src1_type.upper() == "VAR":
-            new_src1_type, new_src1_val = self.get_type_and_value(src1)
-        else:
-            new_src1_type = src1_type
-            new_src1_val = src1
+        new_src1_type, new_src1_val = self.get_type_and_value(src1,src1_type)
         if new_src1_type.upper() != "STRING":
             exit(1)
 
@@ -932,19 +850,11 @@ class Stack:
         if self.is_initialized(dest) == False:
             exit(1)
         
-        if src1_type.upper() == "VAR":
-            new_src1_type, new_src1_val = self.get_type_and_value(src1)
-        else:
-            new_src1_type = src1_type
-            new_src1_val = src1
+        new_src1_type, new_src1_val = self.get_type_and_value(src1,src1_type)
         if new_src1_type.upper() != "STRING":
             exit(1)
 
-        if src2_type.upper() == "VAR":
-            new_src2_type, new_src2_val = self.get_type_and_value(src2)
-        else:
-            new_src2_type = src2_type
-            new_src2_val = src2
+        new_src2_type, new_src2_val = self.get_type_and_value(src2,src2_type)
         if new_src2_type.upper() != "INT":
             exit(1)
 
@@ -955,23 +865,15 @@ class Stack:
         self.assign(dest,dest_value,"STRING")
 
     def setchar(self,dest,src1,src1_type,src2,src2_type):
-        new_dest_type, new_dest_val = self.get_type_and_value(dest)
+        new_dest_type, new_dest_val = self.get_type_and_value(dest,"VAR")
         if new_dest_type.upper() != "STRING":
             exit(1)
 
-        if src1_type.upper() == "VAR":
-            new_src1_type, new_src1_val = self.get_type_and_value(src1)
-        else:
-            new_src1_type = src1_type
-            new_src1_val = src1
+        new_src1_type, new_src1_val = self.get_type_and_value(src1,src1_type)
         if new_src1_type.upper() != "INT":
             exit(1)
 
-        if src2_type.upper() == "VAR":
-            new_src2_type, new_src2_val = self.get_type_and_value(src2)
-        else:
-            new_src2_type = src2_type
-            new_src2_val = src2
+        new_src2_type, new_src2_val = self.get_type_and_value(src2,src2_type)
         if new_src2_type.upper() != "STRING":
             exit(1)
 
@@ -987,33 +889,25 @@ class Stack:
     
     def jumpifeq(self,dest,src1,src1_type,src2,src2_type,call_stack,order_dict,neq=False):
         global instr_index
-        print(call_stack.label_list)
         if dest not in call_stack.label_list:
             exit(1)
-        print("HELL")
             
-        if src1_type.upper() in ['VAR']:
-            src1_type,src1_value = self.get_type_and_value(src1)
-        else:
-            src1_value = src1
-        if src1_type.upper() not in ['INT','BOOL','STRING','NIL']:
+        new_src1_type,new_src1_value = self.get_type_and_value(src1,src1_type)
+        if new_src1_type.upper() not in ['INT','BOOL','STRING','NIL']:
             exit(52) #TODO:errcode 52
         
-        if src2_type.upper() in ['VAR']:
-            src2_type,src2_value = self.get_type_and_value(src2)
-        else:
-            src2_value = src2
-        if src2_type.upper() not in ['INT','BOOL','STRING','NIL']:
+        new_src2_type,new_src2_value = self.get_type_and_value(src2,src2_type)
+        if new_src2_type.upper() not in ['INT','BOOL','STRING','NIL']:
             exit(52) #TODO:errcode 52
         
         new_value = False
-        if src1_type != src2_type:
-            if src1_type.upper() == "NIL" or src2_type.upper() == "NIL":
+        if new_src1_type != new_src2_type:
+            if new_src1_type.upper() == "NIL" or new_src2_type.upper() == "NIL":
                 new_value = True
             else:
                 exit(1) #TODO:errcode
         else:
-            new_value = (src1_value == src2_value)
+            new_value = (new_src1_value == new_src2_value)
         
         if neq:
             new_value = not new_value
