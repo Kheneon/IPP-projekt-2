@@ -111,6 +111,8 @@ class ExecuteProgram():
                     stack.read(arg_name[0],arg_name[1])
                 case "CONCAT":
                     stack.concat(arg_name[0],arg_name[1],arg_type[1],arg_name[2],arg_type[2])
+                case "STRLEN":
+                    stack.strlen(arg_name[0],arg_name[1],arg_type[1])
 
                 case other:
                     exit(1)
@@ -311,6 +313,10 @@ class InstructionList:
                 self.is_param_var(param[0])
                 self.is_param_var_or_string(param[1])
                 self.is_param_var_or_string(param[2])
+            # arg1 = var, arg2 =  var/string
+            case "STRLEN":
+                self.is_param_var(param[0])
+                self.is_param_var_or_string(param[1])
             case other:
                 exit(1)
 
@@ -890,6 +896,21 @@ class Stack:
 
         dest_value = new_src1_val + new_src2_val
         self.assign(dest,dest_value,"STRING")
+
+    def strlen(self,dest,src1,src1_type):
+        if self.is_initialized(dest) == False:
+            exit(1)
+
+        if src1_type.upper() == "VAR":
+            new_src1_type, new_src1_val = self.get_type_and_value(src1)
+        else:
+            new_src1_type = src1_type
+            new_src1_val = src1
+        if new_src1_type.upper() != "STRING":
+            exit(1)
+
+        dest_value = len(new_src1_val)
+        self.assign(dest,dest_value,"INT")
         
 class CallStack:
     """Holds positions that we will return to"""
@@ -936,7 +957,6 @@ class DataStack:
 Execution = ExecuteProgram()
 
 #TODO:
-# STRLEN
 # GETCHAR
 # SETCHAR
 # JUMPIFEQ
