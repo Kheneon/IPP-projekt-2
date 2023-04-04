@@ -113,6 +113,8 @@ class ExecuteProgram():
                     stack.concat(arg_name[0],arg_name[1],arg_type[1],arg_name[2],arg_type[2])
                 case "STRLEN":
                     stack.strlen(arg_name[0],arg_name[1],arg_type[1])
+                case "GETCHAR":
+                    stack.getchar(arg_name[0],arg_name[1],arg_type[1],arg_name[2],arg_type[2])
 
                 case other:
                     exit(1)
@@ -300,7 +302,7 @@ class InstructionList:
                 self.is_param_var(param[0])
                 self.is_param_var_or_bool(param[1])
             # arg1 = var, arg2 = var/string, arg3 = var/int
-            case "STRI2INT":
+            case "STRI2INT" | "GETCHAR":
                 self.is_param_var(param[0])
                 self.is_param_var_or_string(param[1])
                 self.is_param_var_or_int(param[2])
@@ -912,6 +914,32 @@ class Stack:
         dest_value = len(new_src1_val)
         self.assign(dest,dest_value,"INT")
         
+    def getchar(self,dest,src1,src1_type,src2,src2_type):
+        if self.is_initialized(dest) == False:
+            exit(1)
+        
+        if src1_type.upper() == "VAR":
+            new_src1_type, new_src1_val = self.get_type_and_value(src1)
+        else:
+            new_src1_type = src1_type
+            new_src1_val = src1
+        if new_src1_type.upper() != "STRING":
+            exit(1)
+
+        if src2_type.upper() == "VAR":
+            new_src2_type, new_src2_val = self.get_type_and_value(src2)
+        else:
+            new_src2_type = src2_type
+            new_src2_val = src2
+        if new_src2_type.upper() != "INT":
+            exit(1)
+
+        new_src1_len = len(new_src1_val)
+        if new_src1_len <= int(new_src2_val):
+            exit(58)
+        dest_value = new_src1_val[int(new_src2_val)]
+        self.assign(dest,dest_value,"STRING")
+
 class CallStack:
     """Holds positions that we will return to"""
     def __init__(self):
@@ -923,12 +951,12 @@ class CallStack:
     def pop(self):
         if self.stack_top == -1:
             exit(1) # Call stack is empty TODO: exit code
-        name = self.stack.pop()
+        order = self.stack.pop()
         self.stack_top -= 1
-        return name
+        return order
 
-    def push(self,name):
-        self.stack.append(name)
+    def push(self,order):
+        self.stack.append(order)
         self.stack_top += 1
     
     def add_label(self,name,order):
@@ -957,7 +985,6 @@ class DataStack:
 Execution = ExecuteProgram()
 
 #TODO:
-# GETCHAR
 # SETCHAR
 # JUMPIFEQ
 # JUMPIFNEQ
