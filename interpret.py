@@ -53,7 +53,7 @@ class ExecuteProgram():
             instruction = instr_list.instruction_list[instr_index]
             instr_list.instruction_check(instruction)
             instr_name = instruction.attrib.get('opcode').upper()
-            print("INSTRUCTION:",instr_name,"\nindex:",instr_index)
+            #print("INSTRUCTION:",instr_name,"\nindex:",instr_index)
             arg_name = [None] * len(instruction)
             arg_type = [None] * len(instruction)
             order = instruction.attrib.get('order')
@@ -117,6 +117,10 @@ class ExecuteProgram():
                     stack.getchar(arg_name[0],arg_name[1],arg_type[1],arg_name[2],arg_type[2])
                 case "SETCHAR":
                     stack.setchar(arg_name[0],arg_name[1],arg_type[1],arg_name[2],arg_type[2])
+                case "JUMPIFEQ":
+                    stack.jumpifeq(arg_name[0],arg_name[1],arg_type[1],arg_name[2],arg_type[2],instr_list.call_stack,instr_list.order_dict)
+                case "JUMPIFNEQ":
+                    stack.jumpifeq(arg_name[0],arg_name[1],arg_type[1],arg_name[2],arg_type[2],instr_list.call_stack,instr_list.order_dict,neq=True)
                 case other:
                     exit(1)
 
@@ -325,6 +329,10 @@ class InstructionList:
                 self.is_param_var(param[0])
                 self.is_param_var_or_int(param[1])
                 self.is_param_var_or_string(param[2])
+            case "JUMPIFEQ" | "JUMPIFNEQ":
+                self.is_param_label(param[0])
+                self.is_param_var_or_const(param[1])
+                self.is_param_var_or_const(param[2])
             case other:
                 exit(1)
 
@@ -464,7 +472,7 @@ class Stack:
     def __init__(self):
         self.frame_stack = FrameStack()
         self.data_stack = DataStack()
-        self.call_stack = CallStack()
+        #self.call_stack = CallStack()
 
     def create_frame(self):
         """Creating temporary frame"""
@@ -976,6 +984,42 @@ class Stack:
         print(new_dest_val)
         new_dest_val = new_dest_val[:int(new_src1_val)] + new_src2_val[0] + new_dest_val[int(new_src1_val)+1:]
         self.assign(dest,new_dest_val,"STRING")
+    
+    def jumpifeq(self,dest,src1,src1_type,src2,src2_type,call_stack,order_dict,neq=False):
+        global instr_index
+        print(call_stack.label_list)
+        if dest not in call_stack.label_list:
+            exit(1)
+        print("HELL")
+            
+        if src1_type.upper() in ['VAR']:
+            src1_type,src1_value = self.get_type_and_value(src1)
+        else:
+            src1_value = src1
+        if src1_type.upper() not in ['INT','BOOL','STRING','NIL']:
+            exit(52) #TODO:errcode 52
+        
+        if src2_type.upper() in ['VAR']:
+            src2_type,src2_value = self.get_type_and_value(src2)
+        else:
+            src2_value = src2
+        if src2_type.upper() not in ['INT','BOOL','STRING','NIL']:
+            exit(52) #TODO:errcode 52
+        
+        new_value = False
+        if src1_type != src2_type:
+            if src1_type.upper() == "NIL" or src2_type.upper() == "NIL":
+                new_value = True
+            else:
+                exit(1) #TODO:errcode
+        else:
+            new_value = (src1_value == src2_value)
+        
+        if neq:
+            new_value = not new_value
+
+        if new_value:
+            instr_index = order_dict[call_stack.label_order[dest]]
 
 class CallStack:
     """Holds positions that we will return to"""
@@ -1022,6 +1066,3 @@ class DataStack:
 Execution = ExecuteProgram()
 
 #TODO:
-# SETCHAR
-# JUMPIFEQ
-# JUMPIFNEQ
