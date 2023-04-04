@@ -109,6 +109,9 @@ class ExecuteProgram():
                     stack.stri2int(arg_name[0],arg_name[1],arg_type[1],arg_name[2],arg_type[2])
                 case "READ":
                     stack.read(arg_name[0],arg_name[1])
+                case "CONCAT":
+                    stack.concat(arg_name[0],arg_name[1],arg_type[1],arg_name[2],arg_type[2])
+
                 case other:
                     exit(1)
 
@@ -299,9 +302,15 @@ class InstructionList:
                 self.is_param_var(param[0])
                 self.is_param_var_or_string(param[1])
                 self.is_param_var_or_int(param[2])
+            # arg1 = var, arg2 = type
             case "READ":
                 self.is_param_var(param[0])
                 self.is_param_type(param[1])
+            # arg1 = var, arg2 = var/string, arg3 = var/string
+            case "CONCAT":
+                self.is_param_var(param[0])
+                self.is_param_var_or_string(param[1])
+                self.is_param_var_or_string(param[2])
             case other:
                 exit(1)
 
@@ -859,8 +868,29 @@ class Stack:
                     exit(1)
         self.assign(dest,value,new_type.upper())
 
+    def concat(self,dest,src1,src1_type,src2,src2_type):
+        if self.is_initialized(dest) == False:
+            exit(1)
         
+        if src1_type.upper() == "VAR":
+            new_src1_type, new_src1_val = self.get_type_and_value(src1)
+        else:
+            new_src1_type = src1_type
+            new_src1_val = src1
+        if new_src1_type.upper() != "STRING":
+            exit(1)
 
+        if src2_type.upper() == "VAR":
+            new_src2_type, new_src2_val = self.get_type_and_value(src2)
+        else:
+            new_src2_type = src2_type
+            new_src2_val = src2
+        if new_src2_type.upper() != "STRING":
+            exit(1)
+
+        dest_value = new_src1_val + new_src2_val
+        self.assign(dest,dest_value,"STRING")
+        
 class CallStack:
     """Holds positions that we will return to"""
     def __init__(self):
@@ -906,8 +936,6 @@ class DataStack:
 Execution = ExecuteProgram()
 
 #TODO:
-# READ
-# CONCAT
 # STRLEN
 # GETCHAR
 # SETCHAR
