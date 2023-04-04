@@ -115,7 +115,8 @@ class ExecuteProgram():
                     stack.strlen(arg_name[0],arg_name[1],arg_type[1])
                 case "GETCHAR":
                     stack.getchar(arg_name[0],arg_name[1],arg_type[1],arg_name[2],arg_type[2])
-
+                case "SETCHAR":
+                    stack.setchar(arg_name[0],arg_name[1],arg_type[1],arg_name[2],arg_type[2])
                 case other:
                     exit(1)
 
@@ -319,6 +320,11 @@ class InstructionList:
             case "STRLEN":
                 self.is_param_var(param[0])
                 self.is_param_var_or_string(param[1])
+            # arg1 = var, arg2 = var/int, arg3 = var/string
+            case "SETCHAR":
+                self.is_param_var(param[0])
+                self.is_param_var_or_int(param[1])
+                self.is_param_var_or_string(param[2])
             case other:
                 exit(1)
 
@@ -939,6 +945,37 @@ class Stack:
             exit(58)
         dest_value = new_src1_val[int(new_src2_val)]
         self.assign(dest,dest_value,"STRING")
+
+    def setchar(self,dest,src1,src1_type,src2,src2_type):
+        new_dest_type, new_dest_val = self.get_type_and_value(dest)
+        if new_dest_type.upper() != "STRING":
+            exit(1)
+
+        if src1_type.upper() == "VAR":
+            new_src1_type, new_src1_val = self.get_type_and_value(src1)
+        else:
+            new_src1_type = src1_type
+            new_src1_val = src1
+        if new_src1_type.upper() != "INT":
+            exit(1)
+
+        if src2_type.upper() == "VAR":
+            new_src2_type, new_src2_val = self.get_type_and_value(src2)
+        else:
+            new_src2_type = src2_type
+            new_src2_val = src2
+        if new_src2_type.upper() != "STRING":
+            exit(1)
+
+        new_src2_len = len(new_src2_val)
+        if not new_src2_len:
+            exit(58)
+        new_dest_len = len(new_dest_val)
+        if new_dest_len <= int(new_src1_val):
+            exit(58)
+        print(new_dest_val)
+        new_dest_val = new_dest_val[:int(new_src1_val)] + new_src2_val[0] + new_dest_val[int(new_src1_val)+1:]
+        self.assign(dest,new_dest_val,"STRING")
 
 class CallStack:
     """Holds positions that we will return to"""
