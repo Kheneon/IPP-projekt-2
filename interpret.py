@@ -16,6 +16,7 @@ from VariableClass import *
 from CallStackClass import *
 from StackClass import *
 from InstructionListClass import *
+instr_index = 0
 
 class ExecuteProgram():
     """
@@ -27,7 +28,7 @@ class ExecuteProgram():
     input_file = ""
     def __init__(self):
         global instr_index
-        global file
+        self.file = None
         self.input_parameters(sys.argv)
         instr_list = InstructionList(self.source_file,self.input_file)
         if self.input_file != "":
@@ -45,7 +46,7 @@ class ExecuteProgram():
             instruction = instr_list.instruction_list[instr_index]
             instr_list.instruction_check(instruction)
             instr_name = instruction.attrib.get('opcode').upper()
-            print("INSTRUCTION:",instr_name,"\nindex:",instr_index)
+            # print("INSTRUCTION:",instr_name,"\nindex:",instr_index)
             arg_name = [None] * len(instruction)
             arg_type = [None] * len(instruction)
             order = instruction.attrib.get('order')
@@ -63,9 +64,9 @@ class ExecuteProgram():
                 case "POPFRAME":
                     stack.pop_frame()
                 case "MOVE":
-                    stack.move(instruction)
+                    stack.move(arg_name[0],arg_name[1],arg_type[1])
                 case "CALL":
-                    instr_list.call(arg_name[0],order)
+                    instr_index = instr_list.call(arg_name[0],order,instr_index)
                 case "LABEL":
                     instr_index += 1
                     continue
@@ -78,7 +79,7 @@ class ExecuteProgram():
                 case "JUMP":
                     instr_list.jump(arg_name[0],order)
                 case "RETURN":
-                    instr_list.return_call()
+                    instr_index = instr_list.return_call()
                 case "EXIT":
                     instr_list.exit_call(arg_name[0])
                 case "ADD"| "SUB" | "MUL" | "IDIV":
@@ -100,7 +101,9 @@ class ExecuteProgram():
                 case "STRI2INT":
                     stack.stri2int(arg_name[0],arg_name[1],arg_type[1],arg_name[2],arg_type[2])
                 case "READ":
-                    stack.read(arg_name[0],arg_name[1])
+                    file = self.open_file(instr_list.input_file,self.file)
+                    # print(file)
+                    stack.read(arg_name[0],arg_name[1],file)
                 case "CONCAT":
                     stack.concat(arg_name[0],arg_name[1],arg_type[1],arg_name[2],arg_type[2])
                 case "STRLEN":
@@ -110,11 +113,13 @@ class ExecuteProgram():
                 case "SETCHAR":
                     stack.setchar(arg_name[0],arg_name[1],arg_type[1],arg_name[2],arg_type[2])
                 case "JUMPIFEQ":
-                    stack.jumpifeq(arg_name[0],arg_name[1],arg_type[1],arg_name[2],arg_type[2],instr_list.call_stack,instr_list.order_dict)
+                    instr_index = stack.jumpifeq(arg_name[0],arg_name[1],arg_type[1],arg_name[2],
+                    arg_type[2],instr_list.call_stack,instr_list.order_dict,instr_index)
                 case "JUMPIFNEQ":
-                    stack.jumpifeq(arg_name[0],arg_name[1],arg_type[1],arg_name[2],arg_type[2],instr_list.call_stack,instr_list.order_dict,neq=True)
+                    instr_index = stack.jumpifeq(arg_name[0],arg_name[1],arg_type[1],arg_name[2],
+                    arg_type[2],instr_list.call_stack,instr_list.order_dict,instr_index,neq=True)
                 case other:
-                    exit(1)
+                    exit(32) # unknown instruction
 
             instr_index += 1
         if file != None:
@@ -124,29 +129,37 @@ class ExecuteProgram():
         """
         Function that controls parameters from command line
         """
-        argc = len(argv)
-        if argc < 2 or argc > 3:
-            exit(10)
+        argc = len(sys.argv)
+        if argc < 2:
+            exit(10) # no arguments
         if argv[1] == "--help" and argc < 3:
             print("HELP") #TODO: Help
-            exit(0)
+            exit(0) # write help
         for argument in argv[1:]:
             if argument[0:8] == "--input=":
                 if self.input_file != "":
-                    exit(10)
+                    exit(10) # double input file declaration
                 self.input_file = argument[8:]
                 if self.input_file == "":
-                    exit(10)
+                    exit(10) # no file specified
             elif argument[0:9] == "--source=":
                 if self.source_file != "":
-                    exit(10)
+                    exit(10) # double source file declaration
                 self.source_file = argument[9:]
                 if self.source_file == "":
-                    exit(10)
+                    exit(10) # no file specified
             else:
-                exit(10)
+                exit(10) # unknown argument
+    
+    def open_file(self,filename,file_open_already):
+        # print(filename)
+        if filename == "":
+            return None
+        elif file_open_already == None:
+            open_file = open(filename,"r")
+            return open_file
+        else:
+            return file_open_already
 
 # Executing program
 Execution = ExecuteProgram()
-
-#TODO:

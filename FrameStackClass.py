@@ -1,3 +1,14 @@
+#########################################
+#
+# IPP projekt 2
+# Date:    2022/2023
+#
+# Modul:   FrameStackClass.py
+#
+# Author:  Michal Zapletal
+# Contact: xzaple41@stud.fit.vutbr.cz
+#
+#########################################
 from FrameClass import *
 
 class FrameStack:

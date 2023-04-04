@@ -1,3 +1,14 @@
+#########################################
+#
+# IPP projekt 2
+# Date:    2022/2023
+#
+# Modul:   FrameClass.py
+#
+# Author:  Michal Zapletal
+# Contact: xzaple41@stud.fit.vutbr.cz
+#
+#########################################
 from VariableClass import *
 
 class Frame:
@@ -12,9 +23,9 @@ class Frame:
 
     def defvar(self,name):
         if name == "":
-            exit(1) #TODO: errcode
+            exit(52) # variable has no name TODO: errcode
         if name in self.var_list:
-            exit(52)
+            exit(52) # redefinition of variable
         self.variables.append(Variable(name))
         self.var_list.append(name)
 

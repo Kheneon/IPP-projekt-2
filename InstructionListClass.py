@@ -1,3 +1,14 @@
+#########################################
+#
+# IPP projekt 2
+# Date:    2022/2023
+#
+# Modul:   InstructionListClass.py
+#
+# Author:  Michal Zapletal
+# Contact: xzaple41@stud.fit.vutbr.cz
+#
+#########################################
 from CallStackClass import *
 import xml.etree.ElementTree as elemTree
 import sys
@@ -22,55 +33,54 @@ class InstructionList:
         try:
             tree = elemTree.parse(self.source_file)
         except FileNotFoundError:
-            exit(10)
+            exit(11) # File not found
         except:
-            exit(31)
+            exit(31) # XML is not well formed
 
         root = tree.getroot()
 
         if root.tag != 'program':
-            exit(31)
+            exit(31) # tag is not 'program'
 
         language = root.attrib.get('language')
         if language != None:
             if language.upper() != 'IPPCODE23':
-                exit(31)
+                exit(32) # language is not IPPCODE23 TODO:errcode
         else:
-            exit(31)
+            exit(32) # no language
 
         for instruction in root:
             # each instruction has to have tag instruction
             if instruction.tag != 'instruction':
-                exit(32)
+                exit(32) # instruction not found
 
             # each instruction has to have attribute order and it has to be integer > 0
             order = instruction.attrib.get('order')
             if order == None:
-                exit(32)
+                exit(32) # order not found
 
             try:
                 if int(order) < 1:
-                    exit(32)
+                    exit(32) # order is 0 or lower
             except Exception:
-                exit(32)
+                exit(32) # order is not a number
 
             # each instruction must contain attribute opcode
             if instruction.attrib.get('opcode') == None:
-                exit(32)
+                exit(32) # opcode not found
             
             if order not in self.order_list:
                 self.order_list.append(order)
             else:
-                exit(32)
+                exit(32) # double instruction order found
 
             if instruction.attrib.get('opcode') == "LABEL":
                 if len(instruction) != 1:
-                    exit(1) # Too many arguments 
+                    exit(53) # Too many arguments TODO:errcode
                 self.call_stack.add_label(instruction[0].text,instruction.attrib.get('order'))
             self.instruction_list.append(instruction)
 
         self.instruction_list = sorted(self.instruction_list, key=lambda instr: int(instr.attrib['order']))
-        #self.order_list = [int(x) for x in self.order_list]
         self.order_list = sorted(self.order_list, key=lambda ord: int(ord))
         counter = 0
         for ord in self.order_list:
@@ -88,7 +98,7 @@ class InstructionList:
 
         for arg in instruction:
             if arg.tag not in arg_list:
-                exit(1)
+                exit(32) # double argument with same number TODO:errcode
             arg_list.remove(arg.tag)
 
         instr_name = instruction.attrib.get('opcode').upper()
@@ -168,7 +178,7 @@ class InstructionList:
                 self.is_param_var_or_const(param[1])
                 self.is_param_var_or_const(param[2])
             case other:
-                exit(1)
+                exit(22) # unknown instruction
 
     def check_num_of_params(self,name,value):
         """
@@ -178,79 +188,78 @@ class InstructionList:
         name_upper = name.upper()
         if value == 0:
             if name_upper not in ['CREATEFRAME','PUSHFRAME','POPFRAME','RETURN','BREAK']:
-                exit(1)
-        if value == 1:
+                exit(32) # instruction has wrong number of arguments
+        if value == 32:
             if name_upper not in ['DEFVAR','CALL','PUSHS','POPS','WRITE','LABEL','JUMP','EXIT','DPRINT']:
-                exit(1)
+                exit(32)
         if value == 2:
             if name_upper not in ['MOVE','INT2CHAR','READ','STRLEN','TYPE','NOT']:
-                exit(1)
+                exit(32)
         if value == 3:
             if name_upper not in ['ADD','SUB','MUL','IDIV','LT','GT','EQ','AND','OR','STRI2INT','CONCAT','GETCHAR','SETCHAR','JUMPIFEQ','JUMPIFNEQ']:
-                exit(1)
+                exit(32)
 
     def is_param_var(self,type_to_check):
         if type_to_check.upper() != "VAR":
-            exit(1)
+            exit(52)
     
     def is_param_int(self,type_to_check):
         if type_to_check.upper() != "INT":
-            exit(1)
+            exit(52)
 
     def is_param_var_or_const(self,type_to_check):
         if type_to_check.upper() not in ['VAR','INT','BOOL','STRING','NIL']:
-            exit(1)
+            exit(52)
 
     def is_param_label(self,type_to_check):
         if type_to_check.upper() != "LABEL":
-            exit(1)
+            exit(52)
 
     def is_param_int(self,type_to_check):
         if type_to_check.upper() != "INT":
-            exit(1)
+            exit(52)
 
     def is_param_var_or_int(self,type_to_check):
         if type_to_check.upper() not in ['VAR','INT']:
-            exit(1)
+            exit(52)
 
     def is_param_var_or_bool(self,type_to_check):
         if type_to_check.upper() not in ['VAR','BOOL']:
-            exit(1)
+            exit(52)
 
     def is_param_var_or_string(self,type_to_check):
         if type_to_check.upper() not in ['VAR','STRING']:
-            exit(1)
+            exit(52)
 
     def is_param_type(self,type_to_check):
         if type_to_check.upper() not in ['TYPE']:
-            exit(1)
+            exit(52)
 
-    def call(self,name,order):
-        global instr_index
-        self.jump(name,order)
+    def call(self,name,order,instr_index):
+        new_instr_index = self.jump(name,order,instr_index)
         self.call_stack.push(order)
+        return new_instr_index
 
-    def jump(self,name,order):
-        global instr_index
+    def jump(self,name,order,instr_index):
         if name not in self.call_stack.label_list:
-            exit(1) #TODO:errcode
-        instr_index = self.order_dict[self.call_stack.label_order[name]]
-        print(instr_index)
+            exit(52) # using undefined label
+        new_instr_index = self.order_dict[self.call_stack.label_order[name]]
+        return new_instr_index
 
     def return_call(self):
         global instr_index
         if self.call_stack.stack_top == -1:
-            exit(1)
-        print(self.call_stack.stack)
+            exit(56) # call stack is empty
         name = self.call_stack.pop()
         instr_index = self.order_dict[name]
-        print(instr_index)
 
     def exit_call(self,exit_code):
-        try: int(exit_code)
+        try: exit_num = int(exit_code)
         except ValueError:
-            exit(57)
-        exit(int(exit_code))
+            exit(57) # variable is not int
+        if exit_num not in range(50):
+            exit(57) # exit code not in range <0,49>
+        exit(exit_num)
         
 
     def print_labels(self):

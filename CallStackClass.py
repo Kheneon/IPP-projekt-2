@@ -1,3 +1,14 @@
+#########################################
+#
+# IPP projekt 2
+# Date:    2022/2023
+#
+# Modul:   CallStackClass.py
+#
+# Author:  Michal Zapletal
+# Contact: xzaple41@stud.fit.vutbr.cz
+#
+#########################################
 class CallStack:
     """Holds positions that we will return to"""
     def __init__(self):
@@ -8,7 +19,7 @@ class CallStack:
     
     def pop(self):
         if self.stack_top == -1:
-            exit(1) # Call stack is empty TODO: exit code
+            exit(56) # Call stack is empty
         order = self.stack.pop()
         self.stack_top -= 1
         return order
