@@ -71,7 +71,7 @@ class ExecuteProgram():
                     instr_index += 1
                     continue
                 case "TYPE":
-                    stack.to_type(arg_name[0],arg_name[1],arg_name[1])
+                    stack.to_type(arg_name[0],arg_name[1],arg_type[1])
                 case "PUSHS":
                     stack.pushs(instruction[0].attrib.get('type').upper(),arg_name[0])
                 case "POPS":

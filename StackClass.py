@@ -67,11 +67,12 @@ class Stack:
         if not self.is_initialized(dest):
             exit(54) # uninitialized value
         new_value,new_type = self.get_type_and_value(src,src_type)
+        new_type = "STRING"
         if new_value == None:
             new_value = ""
-            self.assign(dest,new_value.lower(),new_type)
+            self.assign(dest,new_value,new_type)
             return
-        new_type = "STRING"
+        print(new_value)
         self.assign(dest,new_value.lower(),new_type)
 
     def is_initialized(self,name):
