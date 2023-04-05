@@ -72,7 +72,7 @@ class Stack:
             new_value = ""
             self.assign(dest,new_value,new_type)
             return
-        print(new_value)
+        # print(new_value)
         self.assign(dest,new_value.lower(),new_type)
 
     def is_initialized(self,name):
