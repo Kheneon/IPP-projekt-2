@@ -12,7 +12,7 @@
 class Variable:
     def __init__(self,name):
         self.name = name
-        self.var_type = "none"
+        self.var_type = None
         self.value = None
 
     def assign(self,value,var_type):

@@ -66,10 +66,11 @@ class Stack:
         """
         if not self.is_initialized(dest):
             exit(54) # uninitialized value
-        if not self.is_assigned(src):
-            self.assign(dest,"","STRING")
-            return
         new_value,new_type = self.get_type_and_value(src,src_type)
+        if new_value == None:
+            new_value = ""
+            self.assign(dest,new_value.lower(),new_type)
+            return
         new_type = "STRING"
         self.assign(dest,new_value.lower(),new_type)
 
