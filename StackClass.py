@@ -64,9 +64,10 @@ class Stack:
         @param: dest Name of variable. Where to save result of operation
         @param: src  Scans this variable and constant, type saves into dest
         """
+        # print(self.frame_stack.global_frame.var_list)
         if not self.is_initialized(dest):
             exit(54) # uninitialized value
-        if not self.is_assigned(src):
+        if src_type.upper() == "VAR" and not self.is_assigned(src):
             new_value = ""
             self.assign(dest,new_value,"STRING")
             return
