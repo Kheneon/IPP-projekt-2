@@ -64,8 +64,11 @@ class Stack:
         @param: dest Name of variable. Where to save result of operation
         @param: src  Scans this variable and constant, type saves into dest
         """
-        if self.is_initialized(dest) == False:
+        if not self.is_initialized(dest):
             exit(54) # uninitialized value
+        if not self.is_assigned(src):
+            self.assign(dest,"","STRING")
+            return
         new_value,new_type = self.get_type_and_value(src,src_type)
         new_type = "STRING"
         self.assign(dest,new_value.lower(),new_type)
