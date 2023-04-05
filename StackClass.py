@@ -27,31 +27,13 @@ class Stack:
         #self.call_stack = CallStack()
 
     def create_frame(self):
-        """Creating temporary frame"""
-        self.frame_stack.temp_frame = Frame(True)
-        #print("create frame")
+        self.frame_stack.create_frame()
 
     def pop_frame(self):
-        """Pops Local frame to Temporary frame, remove previous Temporary frame"""
-        if self.stack_top == -1:
-            exit(55) # no frame to pop from stack left
-
-        self.frame_stack.temp_frame = self.frame_stack.local_frame
-        self.frame_stack.local_frame = self.stack[self.stack_top] 
-        self.stack_top -= 1
-        self.stack.pop()
+        self.frame_stack.pop_frame()
 
     def push_frame(self):
-        """
-        Pushing Temporary Frame on Stack, now it is Local frame
-        """
-        if self.frame_stack.temp_frame.initialized == False:
-            exit(55) # Pushing uninitialized frame
-
-        self.stack.append(self.local_frame)
-        self.stack_top += 1
-        self.frame_stack.local_frame = self.temp_frame
-        self.frame_stack.temp_frame = Frame(False)
+        self.frame_stack.push_frame()
 
     def defvar(self,name):
         if name[0:3] == "GF@":
