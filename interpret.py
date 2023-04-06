@@ -31,8 +31,6 @@ class ExecuteProgram():
         self.file = None
         self.input_parameters(sys.argv)
         instr_list = InstructionList(self.source_file,self.input_file)
-        if self.input_file != "":
-            file = open(self.input_file,"r")
         stack = Stack()
         instr_list_length = len(instr_list.instruction_list)
         # print("[DEBUG]order_list:\n",instr_list.order_list)
@@ -46,7 +44,7 @@ class ExecuteProgram():
             instruction = instr_list.instruction_list[instr_index]
             instr_list.instruction_check(instruction)
             instr_name = instruction.attrib.get('opcode').upper()
-            # print("INSTRUCTION:",instr_name,"\nindex:",instr_index)
+            # print("INSTRUCTION:",instr_name,"\nindex:",instr_index,file=sys.stderr)
             arg_name = [None] * len(instruction)
             arg_type = [None] * len(instruction)
             order = instruction.attrib.get('order')
@@ -54,6 +52,8 @@ class ExecuteProgram():
                 index = int(arg.tag[3])-1
                 arg_name[index] = arg.text
                 arg_type[index] = arg.attrib.get('type')
+                if arg_type[index].upper() == "STRING" and arg_name[index] == None:
+                    arg_name[index] = ""
             match instr_name:
                 case "DEFVAR":
                     stack.defvar(arg_name[0])
@@ -66,7 +66,7 @@ class ExecuteProgram():
                 case "MOVE":
                     stack.move(arg_name[0],arg_name[1],arg_type[1])
                 case "CALL":
-                    instr_index = instr_list.call(arg_name[0],order,instr_index)
+                    instr_index = instr_list.call(arg_name[0],order)
                 case "LABEL":
                     instr_index += 1
                     continue
@@ -77,11 +77,11 @@ class ExecuteProgram():
                 case "POPS":
                     stack.pops(arg_name[0])
                 case "JUMP":
-                    instr_list.jump(arg_name[0],order)
+                    instr_index = instr_list.jump(arg_name[0])
                 case "RETURN":
                     instr_index = instr_list.return_call()
                 case "EXIT":
-                    instr_list.exit_call(arg_name[0])
+                    instr_list.exit_call(arg_name[0],arg_type[0],stack)
                 case "ADD"| "SUB" | "MUL" | "IDIV":
                     stack.calculation(instr_name,arg_name[0],arg_name[1],arg_type[1],arg_name[2],arg_type[2])
                 case "LT" | "GT" | "EQ":
@@ -101,9 +101,8 @@ class ExecuteProgram():
                 case "STRI2INT":
                     stack.stri2int(arg_name[0],arg_name[1],arg_type[1],arg_name[2],arg_type[2])
                 case "READ":
-                    file = self.open_file(instr_list.input_file,self.file)
-                    # print(file)
-                    stack.read(arg_name[0],arg_name[1],file)
+                    self.file = self.open_file(instr_list.input_file,self.file)
+                    self.file = stack.read(arg_name[0],arg_name[1],self.file)
                 case "CONCAT":
                     stack.concat(arg_name[0],arg_name[1],arg_type[1],arg_name[2],arg_type[2])
                 case "STRLEN":
@@ -114,16 +113,16 @@ class ExecuteProgram():
                     stack.setchar(arg_name[0],arg_name[1],arg_type[1],arg_name[2],arg_type[2])
                 case "JUMPIFEQ":
                     instr_index = stack.jumpifeq(arg_name[0],arg_name[1],arg_type[1],arg_name[2],
-                    arg_type[2],instr_list.call_stack,instr_list.order_dict,instr_index)
+                    arg_type[2],instr_list.call_stack,instr_list.order_dict,instr_index,False)
                 case "JUMPIFNEQ":
                     instr_index = stack.jumpifeq(arg_name[0],arg_name[1],arg_type[1],arg_name[2],
-                    arg_type[2],instr_list.call_stack,instr_list.order_dict,instr_index,neq=True)
+                    arg_type[2],instr_list.call_stack,instr_list.order_dict,instr_index,True)
                 case other:
                     exit(32) # unknown instruction
 
             instr_index += 1
-        if file != None:
-            file.close()
+        if self.file != None:
+            self.file.close()
 
     def input_parameters(self,argv):
         """

@@ -31,3 +31,8 @@ class CallStack:
     def add_label(self,name,order):
         self.label_order[name] = order
         self.label_list.append(name)
+
+    def is_label(self,name):
+        if name in self.label_list:
+            return True
+        return False

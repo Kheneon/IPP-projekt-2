@@ -77,6 +77,8 @@ class InstructionList:
             if instruction.attrib.get('opcode') == "LABEL":
                 if len(instruction) != 1:
                     exit(53) # Too many arguments TODO:errcode
+                if self.call_stack.is_label(instruction[0].text):
+                    exit(52)
                 self.call_stack.add_label(instruction[0].text,instruction.attrib.get('order'))
             self.instruction_list.append(instruction)
 
@@ -120,9 +122,9 @@ class InstructionList:
             # arg1 = label
             case "LABEL" | "CALL" | "JUMP":
                 self.is_param_label(param[0])
-            # arg1 = int
+            # arg1 = int/var
             case "EXIT":
-                self.is_param_int(param[0])
+                self.is_param_var_or_int(param[0])
             # arg1 = var, arg2 = const/var
             case "MOVE" | "TYPE":
                 self.is_param_var(param[0])
@@ -201,60 +203,64 @@ class InstructionList:
 
     def is_param_var(self,type_to_check):
         if type_to_check.upper() != "VAR":
-            exit(52)
+            exit(53)
     
     def is_param_int(self,type_to_check):
         if type_to_check.upper() != "INT":
-            exit(52)
+            exit(53)
 
     def is_param_var_or_const(self,type_to_check):
         if type_to_check.upper() not in ['VAR','INT','BOOL','STRING','NIL']:
-            exit(52)
+            exit(53)
 
     def is_param_label(self,type_to_check):
         if type_to_check.upper() != "LABEL":
-            exit(52)
+            exit(53)
 
     def is_param_int(self,type_to_check):
         if type_to_check.upper() != "INT":
-            exit(52)
+            exit(53)
 
     def is_param_var_or_int(self,type_to_check):
         if type_to_check.upper() not in ['VAR','INT']:
-            exit(52)
+            exit(53)
 
     def is_param_var_or_bool(self,type_to_check):
         if type_to_check.upper() not in ['VAR','BOOL']:
-            exit(52)
+            exit(53)
 
     def is_param_var_or_string(self,type_to_check):
         if type_to_check.upper() not in ['VAR','STRING']:
-            exit(52)
+            exit(53)
 
     def is_param_type(self,type_to_check):
         if type_to_check.upper() not in ['TYPE']:
-            exit(52)
+            exit(53)
 
-    def call(self,name,order,instr_index):
-        new_instr_index = self.jump(name,order,instr_index)
+    def call(self,name,order):
+        new_instr_index = self.jump(name)
         self.call_stack.push(order)
         return new_instr_index
 
-    def jump(self,name,order,instr_index):
+    def jump(self,name):
         if name not in self.call_stack.label_list:
             exit(52) # using undefined label
         new_instr_index = self.order_dict[self.call_stack.label_order[name]]
+        # print(new_instr_index)
         return new_instr_index
 
     def return_call(self):
-        global instr_index
         if self.call_stack.stack_top == -1:
             exit(56) # call stack is empty
         name = self.call_stack.pop()
-        instr_index = self.order_dict[name]
+        new_instr_index = self.order_dict[name]
+        return new_instr_index
 
-    def exit_call(self,exit_code):
-        try: exit_num = int(exit_code)
+    def exit_call(self,src,src_type,stack):
+        new_src_type,new_src_value = stack.get_type_and_value(src,src_type)
+        if new_src_type.upper() != "INT":
+            exit(53)
+        try: exit_num = int(new_src_value)
         except ValueError:
             exit(57) # variable is not int
         if exit_num not in range(50):

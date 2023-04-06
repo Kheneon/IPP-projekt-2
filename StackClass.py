@@ -24,7 +24,6 @@ class Stack:
         self.frame_stack = FrameStack()
         self.data_stack = DataStack()
         self.file = None
-        #self.call_stack = CallStack()
 
     def create_frame(self):
         self.frame_stack.create_frame()
@@ -53,8 +52,7 @@ class Stack:
 
     def move(self,dest,src,src_type):
         """Function represents MOVE instruction"""
-        if not self.is_initialized(dest):
-            exit(54) # uninitialized value
+        self.is_initialized(dest)
         new_type,new_value = self.get_type_and_value(src,src_type)
         self.assign(dest,new_value,new_type)
 
@@ -65,15 +63,12 @@ class Stack:
         @param: src  Scans this variable and constant, type saves into dest
         """
         # print(self.frame_stack.global_frame.var_list)
-        if not self.is_initialized(dest):
-            exit(54) # uninitialized value
+        self.is_initialized(dest)
         if src_type.upper() == "VAR" and not self.is_assigned(src):
-            new_value = ""
-            self.assign(dest,new_value,"STRING")
+            self.assign(dest,"","STRING")
             return
         new_value,new_type = self.get_type_and_value(src,src_type)
         new_type = "STRING"
-        # print(new_value)
         self.assign(dest,new_value.lower(),new_type)
 
     def is_initialized(self,name):
@@ -90,8 +85,7 @@ class Stack:
                 exit(55) #uninitalized frame
             var_list = self.frame_stack.temp_frame.var_list
         if name[3:] not in var_list:
-            return False
-        return True
+            exit(54)
 
     def assign(self,name,new_value,new_type):
         if name[0:3] == "GF@":
@@ -133,8 +127,7 @@ class Stack:
                 return var.var_type,var.value
 
     def is_assigned(self,name):
-        if not self.is_initialized(name):
-            exit(54) # undefined variable
+        self.is_initialized(name)
         if name[0:3] == "GF@":
             frame = self.frame_stack.global_frame
         if name[0:3] == "LF@":
@@ -167,9 +160,8 @@ class Stack:
         self.data_stack.push(new_value,new_type)
 
     def pops(self,var_name):
-        if not self.is_initialized(var_name):
-            exit(54) # undefined variable
-        var_to_save = self.data_stack.stack.pop()
+        self.is_initialized(var_name)
+        var_to_save = self.data_stack.pop()
         self.assign(var_name,var_to_save.value,var_to_save.var_type)
 
     def calculation(self,type_of_calc,dest,src1,src1_type,src2,src2_type):
@@ -179,33 +171,29 @@ class Stack:
         - @param dest is not initalized
         - @param src1 or src2 has bad type or has uninitalized values
         """
-        if not self.is_initialized(dest):
-            exit(54) # undefined variable
+        self.is_initialized(dest)
         new_src1_type,new_src1_value = self.get_type_and_value(src1,src1_type)
-        if new_src1_type.upper() != "INT":
-            exit(53) # wrong type of operand
+        self.is_type_int(new_src1_type)
     
         new_src2_type,new_src2_value = self.get_type_and_value(src2,src2_type)
-        if new_src2_type.upper() != "INT":
-            exit(53) # wrong type of operand
+        self.is_type_int(new_src2_type)
         match type_of_calc.upper():
-            case 'ADD':
+            case "ADD":
                 dest_value = int(new_src1_value) + int(new_src2_value)
-            case 'SUB':
+            case "SUB":
                 dest_value = int(new_src1_value) - int(new_src2_value)
-            case 'MUL':
+            case "MUL":
                 dest_value = int(new_src1_value) * int(new_src2_value)
-            case 'IDIV':
+            case "IDIV":
                 if int(new_src2_value) == 0:
                     exit(57) # dividing by zero
                 dest_value = int(int(new_src1_value) / int(new_src2_value))
             case other:
                 exit(52) # unknown type of calculation
-        self.assign(dest,dest_value,'INT')
+        self.assign(dest,dest_value,"INT")
             
     def relation_operators(self,type_of_oper,dest,src1,src1_type,src2,src2_type):
-        if not self.is_initialized(dest):
-            exit(54) # undefined variable
+        self.is_initialized(dest)
 
         new_src1_type,src1_value = self.get_type_and_value(src1,src1_type)
         new_src2_type,src2_value = self.get_type_and_value(src2,src2_type)
@@ -213,7 +201,7 @@ class Stack:
         
         new_value = "false"
         new_type = "BOOL"
-        if new_src1_type != new_src2_type:
+        if new_src1_type.upper() != new_src2_type.upper():
             if type_of_oper.upper() == 'EQ':
                 if new_src1_type.upper() == "NIL" or new_src2_type.upper() == "NIL":
                     self.assign(dest,new_value,new_type)
@@ -221,6 +209,12 @@ class Stack:
                     exit(53) # type of args are not same, none of them is nil
             else:
                 exit(53) # type of args are not same, not in EQ instruction
+
+        src1_value = self.get_value_to_comparison(src1_value,new_src1_type)
+        src2_value = self.get_value_to_comparison(src2_value,new_src2_type)
+        if type_of_oper != "EQ":
+            if self.is_type_nil(new_src1_type) or self.is_type_nil(new_src2_type):
+                exit(53)
 
         match type_of_oper.upper():
             case "EQ":
@@ -239,31 +233,39 @@ class Stack:
     def bool_operators(self,type_of_oper,dest,src1,src1_type,src2,src2_type):
         new_value = "false"
         new_type = "BOOL"
-        if not self.is_initialized(dest):
-            exit(54)
+        self.is_initialized(dest)
 
         new_src1_type,new_src1_value = self.get_type_and_value(src1,src1_type)
 
         if new_src1_type.upper() not in ['BOOL']:
-            exit(52) # type is not bool
-        
+            exit(53) # type is not bool
+        if new_src1_value == "true":
+            new_src1_value = True
+        else:
+            new_src1_value = False
+
         if type_of_oper.upper() != "NOT":
             new_src2_type,new_src2_value = self.get_type_and_value(src2,src2_type)
             if new_src2_type.upper() not in ['BOOL']:
-                exit(52) # type is not bool
+                exit(53) # type is not bool
         else:
-            if new_src1_value == "true":
+            if new_src1_value:
                 self.assign(dest,"false","BOOL")
             else:
                 self.assign(dest,"true","BOOL")
             return
 
+        if new_src2_value == "true":
+            new_src2_value = True
+        else:
+            new_src2_value = False
+
         match type_of_oper.upper():
             case "AND":
-                if new_src1_value == new_src2_value:
+                if new_src1_value and new_src2_value:
                     new_value = "true"
             case "OR":
-                if new_src1_value != "false" or new_src2_value != "false":
+                if new_src1_value != False or new_src2_value != False:
                     new_value = "true"
                     
             case other:
@@ -296,7 +298,7 @@ class Stack:
         Function removes escape sequences
         @return: List of strings without escape sequences
         """
-        buffer = string_to_modify.split("\\")
+        buffer = string_to_modify.split('\\')
         if len(buffer) == 1:
             return buffer
         new_buffer = []
@@ -323,28 +325,28 @@ class Stack:
 
     def int2char(self,dest,dest_type,src,src_type):
         new_type, new_value = self.get_type_and_value(src,src_type)
-        if new_type.upper() != "INT":
-            exit(53) # value is not number
+        self.is_type_int(new_type)
         try: new_value = chr(int(new_value))
-        except ValueError: exit(53) # value is not int
+        except ValueError: exit(58) # value is not int
         except OverflowError: exit(58) # int out of range
-        if not self.is_initialized(dest):
-            exit(54) # undefined variable
-        self.assign(dest,new_value,new_type.upper())
+        self.is_initialized(dest)
+        self.assign(dest,new_value,"STRING")
 
     def stri2int(self,dest,src1,src1_type,src2,src2_type):
-        if not self.is_initialized(dest):
-            exit(54) # undefined variable
+        self.is_initialized(dest)
         src1_new_type, src1_new_value = self.get_type_and_value(src1,src1_type)
         src2_new_type, src2_new_value = self.get_type_and_value(src2,src2_type)
         
         src1_len = len(src1_new_value)
-        if src1_len <= int(src2_new_value):
+        try: src2_new_value = int(src2_new_value)
+        except ValueError: exit(53)
+        if src1_len <= src2_new_value or src2_new_value < 0:
             exit(58) # index out of range
-        dest_value = ord(src1_new_value[int(src2_new_value)])
+        dest_value = ord(src1_new_value[src2_new_value])
         self.assign(dest,dest_value,"INT")
 
     def read(self,dest,read_type,input_file):
+        self.is_initialized(dest)
         if input_file == None: #reading from stdin
             line = sys.stdin.readline()
         else: #reading from file
@@ -361,85 +363,90 @@ class Stack:
                         value = "nil"
                         new_type = "NIL"
                 case "STRING":
-                    value = line
+                    value = line.replace('\n','')
+                    value = value.replace('\\',"\\092")
+                    new_type = "STRING"
                 case "BOOL":
-                    if line == "true":
+                    # print("\"",line,"\"")
+                    if line.lstrip().rstrip().lower() == "true":
                         value = "true"
                     else:
                         value = "false"
-
+                    new_type = "BOOL"
                 case other:
                     exit(52) # unknown opcode
         self.assign(dest,value,new_type.upper())
+        return input_file
 
     def concat(self,dest,src1,src1_type,src2,src2_type):
-        if not self.is_initialized(dest):
-            exit(54)
+        self.is_initialized(dest)
         
         new_src1_type, new_src1_val = self.get_type_and_value(src1,src1_type)
-        if new_src1_type.upper() != "STRING":
-            exit(53)
+        self.is_type_string(new_src1_type)
 
         new_src2_type, new_src2_val = self.get_type_and_value(src2,src2_type)
-        if new_src2_type.upper() != "STRING":
-            exit(53)
+        self.is_type_string(new_src2_type)
 
+        if new_src1_val == None:
+            new_src1_val = ""
+        if new_src2_val == None:
+            new_src2_val = ""
         dest_value = new_src1_val + new_src2_val
         self.assign(dest,dest_value,"STRING")
 
     def strlen(self,dest,src1,src1_type):
-        if not self.is_initialized(dest):
-            exit(54)
+        self.is_initialized(dest)
 
         new_src1_type, new_src1_val = self.get_type_and_value(src1,src1_type)
-        if new_src1_type.upper() != "STRING":
-            exit(53)
+        self.is_type_string(new_src1_type)
 
         dest_value = len(new_src1_val)
         self.assign(dest,dest_value,"INT")
         
     def getchar(self,dest,src1,src1_type,src2,src2_type):
-        if not self.is_initialized(dest):
-            exit(54)
+        self.is_initialized(dest)
         
         new_src1_type, new_src1_val = self.get_type_and_value(src1,src1_type)
-        if new_src1_type.upper() != "STRING":
-            exit(53)
+        self.is_type_string(new_src1_type)
 
         new_src2_type, new_src2_val = self.get_type_and_value(src2,src2_type)
-        if new_src2_type.upper() != "INT":
-            exit(53)
+        self.is_type_int(new_src2_type)
 
         new_src1_len = len(new_src1_val)
-        if new_src1_len <= int(new_src2_val):
+        try: new_src2_val = int(new_src2_val)
+        except ValueError: exit(53)
+        if new_src1_len <= new_src2_val or new_src2_val < 0:
             exit(58)
-        dest_value = new_src1_val[int(new_src2_val)]
+        dest_value = new_src1_val[new_src2_val]
         self.assign(dest,dest_value,"STRING")
 
     def setchar(self,dest,src1,src1_type,src2,src2_type):
         new_dest_type, new_dest_val = self.get_type_and_value(dest,"VAR")
-        if new_dest_type.upper() != "STRING":
-            exit(53)
+        self.is_type_string(new_dest_type)
 
         new_src1_type, new_src1_val = self.get_type_and_value(src1,src1_type)
-        if new_src1_type.upper() != "INT":
-            exit(53)
+        self.is_type_int(new_src1_type)
 
         new_src2_type, new_src2_val = self.get_type_and_value(src2,src2_type)
-        if new_src2_type.upper() != "STRING":
-            exit(53)
+        self.is_type_string(new_src2_type)
+
+        list1 = self.remove_escape_sequence(new_src2_val)
+        new_src2_val = ""
+        for substring in list1:
+            new_src2_val = new_src2_val + substring
 
         new_src2_len = len(new_src2_val)
         if not new_src2_len:
             exit(58)
         new_dest_len = len(new_dest_val)
-        if new_dest_len <= int(new_src1_val):
+        try: new_src1_val = int(new_src1_val)
+        except ValueError: exit(53)
+        if new_dest_len <= new_src1_val or new_src1_val < 0:
             exit(58)
-        # print(new_dest_val)
-        new_dest_val = new_dest_val[:int(new_src1_val)] + new_src2_val[0] + new_dest_val[int(new_src1_val)+1:]
+        new_dest_val = new_dest_val[:new_src1_val] + new_src2_val[0] + new_dest_val[new_src1_val+1:]
         self.assign(dest,new_dest_val,"STRING")
     
-    def jumpifeq(self,dest,src1,src1_type,src2,src2_type,call_stack,order_dict,instr_index,neq=False):
+    def jumpifeq(self,dest,src1,src1_type,src2,src2_type,call_stack,order_dict,instr_index,neq):
         if dest not in call_stack.label_list:
             exit(52)
             
@@ -452,18 +459,83 @@ class Stack:
             exit(53)
         
         new_value = False
-        if new_src1_type != new_src2_type:
-            if new_src1_type.upper() == "NIL" or new_src2_type.upper() == "NIL":
-                new_value = True
+        new_src1_value = self.get_value_to_comparison(new_src1_value,new_src1_type)
+        new_src2_value = self.get_value_to_comparison(new_src2_value,new_src2_type)
+        if new_src1_type.upper() != new_src2_type.upper():
+            if self.is_type_nil(new_src1_type) or self.is_type_nil(new_src2_type):
+                new_value = False
             else:
                 exit(53)
         else:
-            new_value = (new_src1_value == new_src2_value)
-        
+            if new_src1_value == new_src2_value:
+                new_value = True
+            else:
+                new_value = False
+
         if neq:
             new_value = not new_value
 
-        new_instr_index = instr_index
         if new_value:
             new_instr_index = order_dict[call_stack.label_order[dest]]
-        return new_instr_index
+            return new_instr_index
+        return instr_index
+
+    def is_type_int(self,type_to_check):
+        if type_to_check.upper() != "INT":
+            exit(53)
+
+    def is_type_string(self,type_to_check):
+        if type_to_check.upper() != "STRING":
+            exit(53)
+    
+    def get_bool_value(self,bool_val):
+        if bool_val.lower() == "true":
+            return True
+        return False
+    
+    def is_type_nil(self,type_to_check):
+        if type_to_check.lower() == "nil":
+            return True
+        return False
+
+    def get_value_to_comparison(self,src,src_type):
+        match src_type.upper():
+            case "INT":
+                src_ret = int(src)
+            case "STRING":
+                list1 = self.remove_escape_sequence(src)
+                src_ret = ""
+                for string in list1:
+                    src_ret = src_ret + string
+            case "BOOL":
+                src_ret = self.get_bool_value(src)
+            case "NIL":
+                src_ret = "nil"
+        return src_ret
+
+    def comparison(self,src1,src1_type,src2,src2_type):
+        if self.is_type_nil(src1_type) and self.is_type_nil(src2_type):
+            return True
+        elif self.is_type_nil(src1_type):
+            match src2_type.upper():
+                case "STRING":
+                    if src2 == "":
+                        return True
+                case "INT":
+                    if src2 == 0:
+                        return True
+                case "BOOL":
+                    if src2 == False:
+                        return True
+        elif self.is_type_nil(src2_type):
+            match src1_type.upper():
+                case "STRING":
+                        if src2 == "":
+                            return True
+                case "INT":
+                    if src2 == 0:
+                        return True
+                case "BOOL":
+                    if src2 == False:
+                        return True
+        return False
