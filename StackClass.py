@@ -328,6 +328,16 @@ class Stack:
         print("\tGlobal Frame:",file=sys.stderr)
         for var in self.frame_stack.global_frame.variables:
             print("\t\t[name] ",var.name,"\t[type] ",var.var_type,"\t[value] ",var.value,file=sys.stderr)
+        print("\tData Stack:",file=sys.stderr)
+        if self.data_stack.stack_top == -1:
+            print("\t\tEMPTY",file=sys.stderr)
+        else:
+            print("\t\t[TOP]",file=sys.stderr)
+            index = self.data_stack.stack_top
+            while index > -1:
+                print("\t\t[",self.data_stack.stack[index].value,"| type:",self.data_stack.stack[index].var_type,"]",file=sys.stderr)
+                index -= 1
+            print("\t\t[BOTTOM]",file=sys.stderr)
 
     def int2char(self,dest,dest_type,src,src_type):
         new_type, new_value = self.get_type_and_value(src,src_type)
