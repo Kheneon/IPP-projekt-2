@@ -177,17 +177,23 @@ class Stack:
     
         new_src2_type,new_src2_value = self.get_type_and_value(src2,src2_type)
         self.is_type_int(new_src2_type)
+
+        try: new_src1_value = int(new_src1_value)
+        except ValueError: exit(32)
+        try: new_src2_value = int(new_src2_value)
+        except ValueError: exit(32)
+
         match type_of_calc.upper():
             case "ADD":
-                dest_value = int(new_src1_value) + int(new_src2_value)
+                dest_value = new_src1_value + new_src2_value
             case "SUB":
-                dest_value = int(new_src1_value) - int(new_src2_value)
+                dest_value = new_src1_value - new_src2_value
             case "MUL":
-                dest_value = int(new_src1_value) * int(new_src2_value)
+                dest_value = new_src1_value * new_src2_value
             case "IDIV":
-                if int(new_src2_value) == 0:
+                if new_src2_value == 0:
                     exit(57) # dividing by zero
-                dest_value = int(int(new_src1_value) / int(new_src2_value))
+                dest_value = new_src1_value // new_src2_value
             case other:
                 exit(52) # unknown type of calculation
         self.assign(dest,dest_value,"INT")

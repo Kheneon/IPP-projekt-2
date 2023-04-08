@@ -40,7 +40,7 @@ class InstructionList:
         root = tree.getroot()
 
         if root.tag != 'program':
-            exit(31) # tag is not 'program'
+            exit(32) # tag is not 'program'
 
         language = root.attrib.get('language')
         if language != None:
@@ -56,7 +56,7 @@ class InstructionList:
 
             # each instruction has to have attribute order and it has to be integer > 0
             order = instruction.attrib.get('order')
-            if order == None:
+            if not order:
                 exit(32) # order not found
 
             try:
@@ -102,6 +102,9 @@ class InstructionList:
             if arg.tag not in arg_list:
                 exit(32) # double argument with same number TODO:errcode
             arg_list.remove(arg.tag)
+
+        if arg_list:
+            exit(32)
 
         instr_name = instruction.attrib.get('opcode').upper()
         instr_arg_num = len(instruction)
@@ -180,7 +183,7 @@ class InstructionList:
                 self.is_param_var_or_const(param[1])
                 self.is_param_var_or_const(param[2])
             case other:
-                exit(22) # unknown instruction
+                exit(32) # unknown instruction
 
     def check_num_of_params(self,name,value):
         """
@@ -191,7 +194,7 @@ class InstructionList:
         if value == 0:
             if name_upper not in ['CREATEFRAME','PUSHFRAME','POPFRAME','RETURN','BREAK']:
                 exit(32) # instruction has wrong number of arguments
-        if value == 32:
+        if value == 1:
             if name_upper not in ['DEFVAR','CALL','PUSHS','POPS','WRITE','LABEL','JUMP','EXIT','DPRINT']:
                 exit(32)
         if value == 2:
