@@ -155,7 +155,8 @@ class ExecuteProgram():
         if filename == "":
             return None
         elif file_open_already == None:
-            open_file = open(filename,"r")
+            try: open_file = open(filename,"r")
+            except IOError: exit(11)
             return open_file
         else:
             return file_open_already
